@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T21:14:34.717Z",
+  "generatedAt": "2026-07-13T18:40:48.465Z",
   "collections": [
     {
       "name": "users",
@@ -99,6 +99,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "documents",
+          "type": "file",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
