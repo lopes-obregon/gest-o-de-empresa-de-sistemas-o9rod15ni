@@ -75,9 +75,11 @@ export default function Layout() {
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200">
         <div className="p-6 flex items-center space-x-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold">S</span>
+            <span className="text-white font-bold">V</span>
           </div>
-          <span className="text-xl font-bold text-slate-900 tracking-tight">SkipERP</span>
+          <span className="text-xl font-bold text-slate-900 tracking-tight">
+            Vl Soluções em inteligência artificial
+          </span>
         </div>
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           <NavLinks />
@@ -99,9 +101,11 @@ export default function Layout() {
                 <SheetContent side="left" className="w-64 p-0">
                   <div className="p-6 flex items-center space-x-3">
                     <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold">S</span>
+                      <span className="text-white font-bold">V</span>
                     </div>
-                    <span className="text-xl font-bold tracking-tight">SkipERP</span>
+                    <span className="text-xl font-bold tracking-tight">
+                      Vl Soluções em inteligência artificial
+                    </span>
                   </div>
                   <nav className="px-4">
                     <NavLinks />
