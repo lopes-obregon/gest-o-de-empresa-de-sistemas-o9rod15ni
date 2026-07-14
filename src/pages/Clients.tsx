@@ -44,11 +44,13 @@ export default function Clients() {
               <Card key={client.id} className="flex flex-col">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="flex items-center space-x-2">
+                    <CardTitle className="flex items-start space-x-2">
                       <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold shrink-0">
                         {client.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="truncate">{client.name}</span>
+                      <span className="break-words whitespace-normal leading-tight">
+                        {client.name}
+                      </span>
                     </CardTitle>
                     <ClientFormDialog client={client} onSaved={loadData} />
                   </div>
