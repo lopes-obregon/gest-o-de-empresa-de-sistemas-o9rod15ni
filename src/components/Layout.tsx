@@ -78,7 +78,7 @@ export default function Layout() {
             <span className="text-white font-bold">V</span>
           </div>
           <span className="text-xl font-bold text-slate-900 tracking-tight">
-            Vl Soluções em inteligência artificial
+            VL Soluções em IA LTDA
           </span>
         </div>
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
@@ -103,9 +103,7 @@ export default function Layout() {
                     <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                       <span className="text-white font-bold">V</span>
                     </div>
-                    <span className="text-xl font-bold tracking-tight">
-                      Vl Soluções em inteligência artificial
-                    </span>
+                    <span className="text-xl font-bold tracking-tight">VL Soluções em IA LTDA</span>
                   </div>
                   <nav className="px-4">
                     <NavLinks />
