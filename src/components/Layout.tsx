@@ -3,9 +3,23 @@ import {
   LayoutDashboard,
   Briefcase,
   Users,
+  UserCheck,
   BadgeDollarSign,
   Settings,
   LogOut,
+  Search,
+} from 'lucide-react'
+=======
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  UserCheck,
+  ShieldCheck,
+  BadgeDollarSign,
+  Settings,
+  LogOut,
+  Search,
+} from 'lucide-react'
   Menu,
   Search,
 } from 'lucide-react'
@@ -33,6 +47,7 @@ export default function Layout() {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Projetos', path: '/projetos', icon: Briefcase },
     { name: 'Clientes', path: '/clientes', icon: Users },
+    { name: 'Assinantes', path: '/assinantes', icon: UserCheck },
     { name: 'Financeiro', path: '/financeiro', icon: BadgeDollarSign },
     { name: 'Configurações', path: '/configuracoes', icon: Settings },
   ]

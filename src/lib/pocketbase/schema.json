@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14T20:31:51.279Z",
+  "generatedAt": "2026-07-20T19:06:44.414Z",
   "collections": [
     {
       "name": "users",
@@ -105,6 +105,13 @@
           "type": "file",
           "required": false,
           "system": false
+        },
+        {
+          "name": "payment_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["em_dia", "pendente"]
         }
       ],
       "indexes": []
@@ -357,6 +364,66 @@
         }
       ],
       "indexes": []
+    },
+    {
+      "name": "system_subscribers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.role = 'admin'",
+        "view": "@request.auth.role = 'admin'",
+        "create": "@request.auth.role = 'admin'",
+        "update": "@request.auth.role = 'admin'",
+        "delete": "@request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "payment_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["em_dia", "pendente"]
+        },
+        {
+          "name": "access_status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["active", "inactive"]
+        },
+        {
+          "name": "external_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_system_subscribers_email ON system_subscribers (email)"]
     }
   ]
 }

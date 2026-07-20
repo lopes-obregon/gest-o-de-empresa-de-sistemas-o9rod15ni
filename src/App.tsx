@@ -12,6 +12,8 @@ import ProjectDetails from './pages/ProjectDetails'
 import Clients from './pages/Clients'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
+import UsersPage from './pages/Users'
+import Subscribers from './pages/Subscribers'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -31,6 +33,8 @@ const App = () => (
               <Route path="/clientes" element={<Clients />} />
               <Route path="/financeiro" element={<Finance />} />
               <Route path="/configuracoes" element={<Settings />} />
+              <Route path="/configuracoes/usuarios" element={<UsersPage />} />
+              <Route path="/assinantes" element={<Subscribers />} />
             </Route>
           </Route>
 
