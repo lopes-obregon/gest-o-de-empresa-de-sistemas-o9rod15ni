@@ -17,12 +17,7 @@ routerAdd(
     }
 
     var externalUrl =
-      $secrets.get('EXTERNAL_SYSTEM_API_URL') ||
       'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/subscribers'
-
-    if (externalUrl.endsWith('/')) {
-      externalUrl = externalUrl.slice(0, -1)
-    }
 
     var res
     try {
