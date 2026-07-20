@@ -16,12 +16,9 @@ routerAdd(
       })
     }
 
-    var externalUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
-    if (!externalUrl) {
-      return e.json(500, {
-        error: 'URL do sistema externo não configurada. Configure EXTERNAL_SYSTEM_API_URL.',
-      })
-    }
+    var externalUrl =
+      $secrets.get('EXTERNAL_SYSTEM_API_URL') ||
+      'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/subscribers'
 
     if (externalUrl.endsWith('/')) {
       externalUrl = externalUrl.slice(0, -1)
@@ -75,8 +72,8 @@ routerAdd(
           'statusCode',
           res.statusCode,
         )
-      return e.json(502, {
-        error: 'Sistema externo retornou um erro.',
+      return e.json(res.statusCode, {
+        error: 'Sistema externo retornou um erro (' + res.statusCode + ').',
         statusCode: res.statusCode,
       })
     }
@@ -106,15 +103,19 @@ routerAdd(
       var sub = externalSubscribers[i]
       var name = ((sub.name || '') + '').trim()
       var email = ((sub.email || '') + '').trim()
-      var externalId = ((sub.external_id || '') + '').trim()
-      var externalPaymentStatus = ((sub.payment_status || '') + '').trim()
+      var externalId = ((sub.external_id || sub.id || '') + '').trim()
 
+      var externalPaymentStatus = ((sub.payment_status || '') + '').trim()
       var internalPaymentStatus = 'pendente'
-      if (externalPaymentStatus === 'paid') {
+      if (externalPaymentStatus === 'paid' || externalPaymentStatus === 'em_dia') {
         internalPaymentStatus = 'em_dia'
       }
 
+      var externalAccessStatus = ((sub.access_status || '') + '').trim()
       var internalAccessStatus = internalPaymentStatus === 'em_dia' ? 'active' : 'inactive'
+      if (externalAccessStatus === 'active' || externalAccessStatus === 'inactive') {
+        internalAccessStatus = externalAccessStatus
+      }
 
       var existingRecord = null
 
