@@ -1,17 +1,3 @@
-  LayoutDashboard,
-  Briefcase,
-  Users,
-  UserCheck,
-  ShieldCheck,
-  BadgeDollarSign,
-  Settings,
-  LogOut,
-  Search,
-} from 'lucide-react'
-  Menu,
-  Search,
-} from 'lucide-react'
-=======
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -23,20 +9,6 @@ import {
   LogOut,
   Search,
   Menu,
-} from 'lucide-react'
-=======
-  LayoutDashboard,
-  Briefcase,
-  Users,
-  UserCheck,
-  ShieldCheck,
-  BadgeDollarSign,
-  Settings,
-  LogOut,
-  Search,
-} from 'lucide-react'
-  Menu,
-  Search,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
