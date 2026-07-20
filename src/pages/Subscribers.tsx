@@ -79,10 +79,19 @@ export default function Subscribers() {
         description: `${result.created} novos assinantes, ${result.updated} atualizados.`,
       })
       loadData()
-    } catch {
+    } catch (err: any) {
+      const status = err?.status || err?.response?.status || 0
+      let description = 'Não foi possível sincronizar com o sistema externo.'
+      if (status === 401) {
+        description = 'Token de autenticação inválido ou não configurado no sistema externo.'
+      } else if (status === 404) {
+        description = 'Endpoint do sistema externo não encontrado.'
+      } else if (status === 502) {
+        description = 'Falha ao conectar com o sistema externo. Tente novamente.'
+      }
       toast({
         title: 'Falha na sincronização',
-        description: 'Não foi possível sincronizar com o sistema externo.',
+        description,
         variant: 'destructive',
       })
     } finally {

@@ -11,11 +11,21 @@ routerAdd(
 
     var authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
     if (!authToken) {
-      return e.json(500, { error: 'Server not configured for synchronization' })
+      return e.json(401, {
+        error: 'Token de autenticação não configurado. Configure EXTERNAL_SYSTEM_AUTH_TOKEN.',
+      })
     }
 
-    var externalUrl =
-      'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/subscribers'
+    var externalUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
+    if (!externalUrl) {
+      return e.json(500, {
+        error: 'URL do sistema externo não configurada. Configure EXTERNAL_SYSTEM_API_URL.',
+      })
+    }
+
+    if (externalUrl.endsWith('/')) {
+      externalUrl = externalUrl.slice(0, -1)
+    }
 
     var res
     try {
@@ -36,7 +46,25 @@ routerAdd(
           'error',
           err.message || String(err),
         )
-      return e.json(502, { error: 'Failed to connect to external system' })
+      return e.json(502, { error: 'Falha ao conectar ao sistema externo' })
+    }
+
+    if (res.statusCode === 401) {
+      $app
+        .logger()
+        .error('Pull external subscribers failed: 401 Unauthorized', 'statusCode', res.statusCode)
+      return e.json(401, {
+        error: 'Token de autenticação inválido ou expirado no sistema externo.',
+      })
+    }
+
+    if (res.statusCode === 404) {
+      $app
+        .logger()
+        .error('Pull external subscribers failed: 404 Not Found', 'statusCode', res.statusCode)
+      return e.json(404, {
+        error: 'Endpoint do sistema externo não encontrado.',
+      })
     }
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -47,7 +75,10 @@ routerAdd(
           'statusCode',
           res.statusCode,
         )
-      return e.json(502, { error: 'External system returned an error', statusCode: res.statusCode })
+      return e.json(502, {
+        error: 'Sistema externo retornou um erro.',
+        statusCode: res.statusCode,
+      })
     }
 
     var externalSubscribers = []
