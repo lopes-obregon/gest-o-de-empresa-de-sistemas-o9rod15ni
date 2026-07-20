@@ -1,4 +1,4 @@
-onRecordAfterCreateSuccess((e) => {
+onRecordAfterUpdateSuccess((e) => {
   const apiUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
 
@@ -6,7 +6,7 @@ onRecordAfterCreateSuccess((e) => {
     $app
       .logger()
       .warn(
-        'Subscriber sync skipped: EXTERNAL_SYSTEM_API_URL not configured',
+        'Subscriber sync (update) skipped: EXTERNAL_SYSTEM_API_URL not configured',
         'subscriber_id',
         e.record.id,
       )
@@ -43,37 +43,18 @@ onRecordAfterCreateSuccess((e) => {
       $app
         .logger()
         .error(
-          'Subscriber sync failed: external API returned non-2xx status',
+          'Subscriber sync (update) failed: external API returned non-2xx status',
           'subscriber_id',
           e.record.id,
           'statusCode',
           res.statusCode,
         )
-    } else {
-      var responseBody = res.json || {}
-      if (responseBody.external_id) {
-        try {
-          const record = $app.findRecordById('system_subscribers', e.record.id)
-          record.set('external_id', responseBody.external_id)
-          $app.saveNoValidate(record)
-        } catch (saveErr) {
-          $app
-            .logger()
-            .error(
-              'Subscriber sync: failed to save external_id',
-              'subscriber_id',
-              e.record.id,
-              'error',
-              saveErr.message || String(saveErr),
-            )
-        }
-      }
     }
   } catch (err) {
     $app
       .logger()
       .error(
-        'Subscriber sync failed: transport error',
+        'Subscriber sync (update) failed: transport error',
         'subscriber_id',
         e.record.id,
         'error',
