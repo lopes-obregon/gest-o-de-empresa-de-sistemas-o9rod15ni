@@ -4,6 +4,7 @@ import {
   getSubscribers,
   updateSubscriber,
   deleteSubscriber,
+  pullExternalSubscribers,
   SystemSubscriber,
 } from '@/services/system-subscribers'
 import { useAuth } from '@/hooks/use-auth'
@@ -34,7 +35,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Trash2, Search, AlertTriangle, Users2 } from 'lucide-react'
+import { Trash2, Search, AlertTriangle, Users2, RefreshCw } from 'lucide-react'
 import { SubscriberFormDialog } from '@/components/SubscriberFormDialog'
 import { useToast } from '@/hooks/use-toast'
 
@@ -45,6 +46,7 @@ export default function Subscribers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [syncing, setSyncing] = useState(false)
 
   const loadData = async () => {
     const s = await getSubscribers()
@@ -67,6 +69,26 @@ export default function Subscribers() {
       return matchesSearch && matchesStatus
     })
   }, [subscribers, search, statusFilter])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      const result = await pullExternalSubscribers()
+      toast({
+        title: 'Sincronização concluída',
+        description: `${result.created} novos assinantes, ${result.updated} atualizados.`,
+      })
+      loadData()
+    } catch {
+      toast({
+        title: 'Falha na sincronização',
+        description: 'Não foi possível sincronizar com o sistema externo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   if (currentUser?.role !== 'admin') {
     return <Navigate to="/" replace />
@@ -102,7 +124,18 @@ export default function Subscribers() {
             Clientes do sistema integrado e seus status de pagamento.
           </p>
         </div>
-        <SubscriberFormDialog onSaved={loadData} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSync}
+            disabled={syncing}
+            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando...' : 'Sincronizar Assinantes'}
+          </Button>
+          <SubscriberFormDialog onSaved={loadData} />
+        </div>
       </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

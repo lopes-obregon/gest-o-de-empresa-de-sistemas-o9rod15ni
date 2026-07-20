@@ -23,3 +23,14 @@ export const updateSubscriber = (id: string, data: Partial<SystemSubscriber>) =>
 
 export const deleteSubscriber = (id: string) =>
   pb.collection<SystemSubscriber>('system_subscribers').delete(id)
+
+export interface SyncResult {
+  success: boolean
+  created: number
+  updated: number
+  errors: number
+  total: number
+}
+
+export const pullExternalSubscribers = (): Promise<SyncResult> =>
+  pb.send('/backend/v1/pull-external-subscribers', { method: 'POST' })
