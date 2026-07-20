@@ -1,3 +1,17 @@
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  UserCheck,
+  ShieldCheck,
+  BadgeDollarSign,
+  Settings,
+  LogOut,
+  Search,
+} from 'lucide-react'
+  Menu,
+  Search,
+} from 'lucide-react'
+=======
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -8,6 +22,7 @@ import {
   Settings,
   LogOut,
   Search,
+  Menu,
 } from 'lucide-react'
 =======
   LayoutDashboard,
