@@ -15,7 +15,7 @@ routerAdd(
     }
 
     var externalUrl =
-      'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/sync-users'
+      'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/subscribers'
 
     var res
     try {
