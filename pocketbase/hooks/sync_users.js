@@ -2,6 +2,8 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
 
   const body = e.requestInfo().body || {}
+  /*
+  parte do token não implementado a inda 
   if (!authToken) {
     return e.json(500, { error: 'Server not configured for synchronization' })
   }
@@ -15,7 +17,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   if (providedToken !== authToken) {
     return e.json(401, { error: 'Unauthorized' })
   }
-
+*/
   var externalId = (body.external_id || '').trim()
   var email = (body.email || '').trim()
   var name = (body.name || '').trim()
