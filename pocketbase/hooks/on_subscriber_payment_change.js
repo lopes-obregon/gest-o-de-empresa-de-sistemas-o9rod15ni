@@ -1,0 +1,102 @@
+onRecordAfterUpdateSuccess((e) => {
+  const oldStatus = e.record.original().getString('payment_status')
+  const newStatus = e.record.getString('payment_status')
+
+  if (oldStatus === newStatus) return e.next()
+
+  const email = e.record.getString('email')
+  const externalId = e.record.getString('external_id')
+  const name = e.record.getString('name')
+
+  var mappedStatus = 'pending'
+  if (newStatus === 'em_dia') {
+    mappedStatus = 'paid'
+  } else if (newStatus === 'pendente') {
+    mappedStatus = 'pending'
+  }
+
+  var requestBody = JSON.stringify({
+    email: email,
+    external_id: externalId,
+    name: name,
+    payment_status: mappedStatus,
+  })
+
+  try {
+    var res = $http.send({
+      url: 'https://api.vlsolucoesia.com.br/backend/v1/users',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: requestBody,
+      timeout: 30,
+    })
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      $app
+        .logger()
+        .error(
+          'Subscriber payment status sync failed: non-2xx response',
+          'subscriber_id',
+          e.record.id,
+          'email',
+          email,
+          'external_id',
+          externalId,
+          'old_status',
+          oldStatus,
+          'new_status',
+          newStatus,
+          'mapped_status',
+          mappedStatus,
+          'statusCode',
+          res.statusCode,
+          'responseBody',
+          typeof res.body === 'string' ? res.body : '',
+        )
+    } else {
+      $app
+        .logger()
+        .info(
+          'Subscriber payment status synced to external system',
+          'subscriber_id',
+          e.record.id,
+          'email',
+          email,
+          'external_id',
+          externalId,
+          'old_status',
+          oldStatus,
+          'new_status',
+          newStatus,
+          'mapped_status',
+          mappedStatus,
+          'statusCode',
+          res.statusCode,
+        )
+    }
+  } catch (err) {
+    $app
+      .logger()
+      .error(
+        'Subscriber payment status sync failed: transport error',
+        'subscriber_id',
+        e.record.id,
+        'email',
+        email,
+        'external_id',
+        externalId,
+        'old_status',
+        oldStatus,
+        'new_status',
+        newStatus,
+        'mapped_status',
+        mappedStatus,
+        'error',
+        err.message || String(err),
+      )
+  }
+
+  return e.next()
+}, 'system_subscribers')
