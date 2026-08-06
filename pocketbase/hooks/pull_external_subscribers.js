@@ -2,201 +2,166 @@ routerAdd(
   'POST',
   '/backend/v1/pull-external-subscribers',
   (e) => {
-    if (!e.auth) {
-      return e.forbiddenError('Admin access required')
-    }
-    if (!e.hasSuperuserAuth() && e.auth.getString('role') !== 'admin') {
-      return e.forbiddenError('Admin access required')
-    }
+    const baseUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || 'https://api.vlsolucoesia.com.br'
+    const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
 
-    var authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
-    if (!authToken) {
-      return e.json(401, {
-        error: 'Token de autenticação não configurado. Configure EXTERNAL_SYSTEM_AUTH_TOKEN.',
-      })
+    const headers = {
+      'Content-Type': 'application/json',
     }
 
-    var externalUrl =
-      'https://gestor-mei-caminhoneiro-d1039.shrd00.internal.goskip.dev/backend/v1/subscribers'
+    const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
+    if (authToken) {
+      headers['Authorization'] = 'Bearer ' + authToken
+    }
 
-    var res
+    let res
     try {
       res = $http.send({
-        url: externalUrl,
+        url: url,
         method: 'GET',
-        headers: {
-          Authorization: 'Bearer ' + authToken,
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         timeout: 30,
       })
     } catch (err) {
-      $app
-        .logger()
-        .error(
-          'Pull external subscribers failed: transport error',
-          'error',
-          err.message || String(err),
-        )
-      return e.json(502, { error: 'Falha ao conectar ao sistema externo' })
-    }
-
-    if (res.statusCode === 401) {
-      $app
-        .logger()
-        .error('Pull external subscribers failed: 401 Unauthorized', 'statusCode', res.statusCode)
-      return e.json(401, {
-        error: 'Token de autenticação inválido ou expirado no sistema externo.',
+      $app.logger().error('pull_external_subscribers: transport error', 'error', String(err))
+      return e.json(502, {
+        success: false,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
+        message: 'Falha ao conectar com o sistema externo.',
       })
     }
 
-    if (res.statusCode === 404) {
-      $app
-        .logger()
-        .error('Pull external subscribers failed: 404 Not Found', 'statusCode', res.statusCode)
-      return e.json(404, {
-        error: 'Endpoint do sistema externo não encontrado.',
-      })
-    }
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
+    if (res.statusCode !== 200) {
       $app
         .logger()
         .error(
-          'Pull external subscribers failed: external API returned non-2xx',
-          'statusCode',
+          'pull_external_subscribers: non-200 response',
+          'status',
           res.statusCode,
+          'body',
+          String(res.body).substring(0, 500),
         )
       return e.json(res.statusCode, {
-        error: 'Sistema externo retornou um erro (' + res.statusCode + ').',
-        statusCode: res.statusCode,
+        success: false,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
+        message: 'O sistema externo retornou erro ' + res.statusCode + '.',
       })
     }
 
-    var externalSubscribers = []
-    var body = res.json || {}
-    if (Array.isArray(body)) {
-      externalSubscribers = body
-    } else if (Array.isArray(body.subscribers)) {
-      externalSubscribers = body.subscribers
-    } else if (Array.isArray(body.data)) {
-      externalSubscribers = body.data
-    } else if (Array.isArray(body.items)) {
-      externalSubscribers = body.items
-    } else if (Array.isArray(body.result)) {
-      externalSubscribers = body.result
-    } else if (body.success && Array.isArray(body.users)) {
-      externalSubscribers = body.users
+    let body
+    try {
+      body = res.json
+    } catch (err) {
+      $app.logger().error('pull_external_subscribers: failed to parse JSON', 'error', String(err))
+      return e.json(500, {
+        success: false,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
+        message: 'Resposta inválida do sistema externo.',
+      })
     }
 
-    var collection = $app.findCollectionByNameOrId('system_subscribers')
-    var created = 0
-    var updated = 0
-    var errors = 0
+    const users = body.users || []
+    if (!Array.isArray(users)) {
+      return e.json(500, {
+        success: false,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
+        message: "Formato inválido: campo 'users' não é uma lista.",
+      })
+    }
 
-    for (var i = 0; i < externalSubscribers.length; i++) {
-      var sub = externalSubscribers[i]
-      var name = ((sub.name || '') + '').trim()
-      var email = ((sub.email || '') + '').trim()
-      var externalId = ((sub.external_id || sub.id || '') + '').trim()
+    let created = 0
+    let updated = 0
+    let errors = 0
 
-      var externalPaymentStatus = ((sub.payment_status || '') + '').trim()
-      var internalPaymentStatus = 'pendente'
-      if (externalPaymentStatus === 'paid' || externalPaymentStatus === 'em_dia') {
-        internalPaymentStatus = 'em_dia'
-      }
-
-      var externalAccessStatus = ((sub.access_status || '') + '').trim()
-      var internalAccessStatus = internalPaymentStatus === 'em_dia' ? 'active' : 'inactive'
-      if (externalAccessStatus === 'active' || externalAccessStatus === 'inactive') {
-        internalAccessStatus = externalAccessStatus
-      }
-
-      var existingRecord = null
-
-      if (email) {
-        try {
-          existingRecord = $app.findFirstRecordByData('system_subscribers', 'email', email)
-        } catch (_) {}
-      }
-
-      if (!existingRecord && externalId) {
-        try {
-          existingRecord = $app.findFirstRecordByData(
-            'system_subscribers',
-            'external_id',
-            externalId,
-          )
-        } catch (_) {}
-      }
-
-      try {
-        if (existingRecord) {
-          if (name) {
-            existingRecord.set('name', name)
-          }
-          existingRecord.set('payment_status', internalPaymentStatus)
-          existingRecord.set('access_status', internalAccessStatus)
-          if (externalId) {
-            existingRecord.set('external_id', externalId)
-          }
-          if (email) {
-            existingRecord.set('email', email)
-          }
-          $app.save(existingRecord)
-          updated++
-        } else {
-          if (!email && !externalId) {
-            errors++
-            continue
-          }
-          var newRecord = new Record(collection)
-          newRecord.set('name', name || 'Imported User')
-          newRecord.set('email', email || (externalId ? externalId + '@imported.local' : ''))
-          newRecord.set('payment_status', internalPaymentStatus)
-          newRecord.set('access_status', internalAccessStatus)
-          if (externalId) {
-            newRecord.set('external_id', externalId)
-          }
-          $app.save(newRecord)
-          created++
-        }
-      } catch (err) {
+    for (const u of users) {
+      const email = (u.email || '').trim().toLowerCase()
+      if (!email) {
         errors++
-        $app
-          .logger()
-          .error(
-            'Pull external subscribers: error processing record',
-            'error',
-            err.message || String(err),
-            'email',
-            email,
-            'external_id',
-            externalId,
-          )
+        continue
+      }
+
+      const name = (u.name || '').trim() || email
+      const externalId = u.external_id || ''
+      const rawStatus = (u.payment_status || '').trim().toLowerCase()
+      const paymentStatus = rawStatus === 'paid' ? 'em_dia' : 'pendente'
+
+      let existing = null
+      try {
+        existing = $app.findFirstRecordByData('system_subscribers', 'email', email)
+      } catch (_) {}
+
+      if (existing) {
+        const currentStatus = existing.getString('payment_status')
+        const currentName = existing.getString('name')
+        const currentExternalId = existing.getString('external_id')
+        const needsUpdate =
+          currentStatus !== paymentStatus ||
+          currentName !== name ||
+          currentExternalId !== externalId
+
+        if (needsUpdate) {
+          try {
+            existing.set('name', name)
+            existing.set('payment_status', paymentStatus)
+            if (externalId) {
+              existing.set('external_id', externalId)
+            }
+            $app.save(existing)
+            updated++
+          } catch (err) {
+            $app
+              .logger()
+              .error(
+                'pull_external_subscribers: update failed',
+                'email',
+                email,
+                'error',
+                String(err),
+              )
+            errors++
+          }
+        }
+      } else {
+        try {
+          const col = $app.findCollectionByNameOrId('system_subscribers')
+          const record = new Record(col)
+          record.set('name', name)
+          record.set('email', email)
+          record.set('payment_status', paymentStatus)
+          record.set('access_status', 'active')
+          if (externalId) {
+            record.set('external_id', externalId)
+          }
+          $app.save(record)
+          created++
+        } catch (err) {
+          $app
+            .logger()
+            .error('pull_external_subscribers: create failed', 'email', email, 'error', String(err))
+          errors++
+        }
       }
     }
-
-    $app
-      .logger()
-      .info(
-        'Pull external subscribers completed',
-        'created',
-        created,
-        'updated',
-        updated,
-        'errors',
-        errors,
-        'total',
-        externalSubscribers.length,
-      )
 
     return e.json(200, {
       success: true,
       created: created,
       updated: updated,
       errors: errors,
-      total: externalSubscribers.length,
+      total: users.length,
+      message: 'Sincronização concluída.',
     })
   },
   $apis.requireAuth(),
