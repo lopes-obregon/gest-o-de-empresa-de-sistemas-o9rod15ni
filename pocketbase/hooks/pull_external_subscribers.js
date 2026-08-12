@@ -8,12 +8,13 @@ routerAdd(
     const headers = {
       'Content-Type': 'application/json',
     }
-
+    /*
+parte para resolver depois
     const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
     if (authToken) {
       headers['Authorization'] = 'Bearer ' + authToken
     }
-
+*/
     let res
     try {
       res = $http.send({
