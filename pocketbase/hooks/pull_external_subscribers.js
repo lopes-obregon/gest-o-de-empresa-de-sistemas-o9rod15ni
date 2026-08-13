@@ -2,7 +2,10 @@ routerAdd(
   'POST',
   '/backend/v1/pull-external-subscribers',
   (e) => {
-    const baseUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || 'https://api.vlsolucoesia.com.br'
+    let baseUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
+    if (!baseUrl || baseUrl.indexOf('internal.goskip.dev') !== -1) {
+      baseUrl = 'https://api.vlsolucoesia.com.br'
+    }
     const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
 
     const headers = {
