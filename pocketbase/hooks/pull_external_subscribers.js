@@ -7,8 +7,8 @@ routerAdd(
       baseUrl = 'https://api.vlsolucoesia.com.br'
     }
     const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
-    let cfClientId = $secrets.get('CF_Access_Client_Id')
-    let cfClientSecret = $secrets.get('CF-Access-Client-Secret')
+    let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID')
+    let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET')
     const headers = {
       'Content-Type': 'application/json',
     }

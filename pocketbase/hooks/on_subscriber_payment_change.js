@@ -21,8 +21,8 @@ onRecordAfterUpdateSuccess((e) => {
   })
 
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
-  const cfClientId = $secrets.get('CF_Access_Client_Id') || ''
-  const cfClientSecret = $secrets.get('CF-Access-Client-Secret') || ''
+  const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
+  const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
 
   try {
     var res = $http.send({
