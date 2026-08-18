@@ -2,8 +2,6 @@ onRecordAfterUpdateSuccess((e) => {
   const oldStatus = e.record.original().getString('payment_status')
   const newStatus = e.record.getString('payment_status')
 
-  if (oldStatus === newStatus) return e.next()
-
   const email = e.record.getString('email')
   const externalId = e.record.getString('external_id')
   const name = e.record.getString('name')

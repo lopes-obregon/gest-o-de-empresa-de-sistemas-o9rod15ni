@@ -7,17 +7,19 @@ routerAdd(
       baseUrl = 'https://api.vlsolucoesia.com.br'
     }
     const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
-
+    let cfClientId = $secrets.get('CF_Access_Client_Id')
+    let cfClientSecret = $secrets.get('CF-Access-Client-Secret')
     const headers = {
       'Content-Type': 'application/json',
     }
-    /*
-parte para resolver depois
+
     const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
     if (authToken) {
       headers['Authorization'] = 'Bearer ' + authToken
+      headers['CF-Access-Client-Id'] = cfClientId
+      headers['CF-Access-Client-Secret'] = cfClientSecret
     }
-*/
+
     let res
     try {
       res = $http.send({
