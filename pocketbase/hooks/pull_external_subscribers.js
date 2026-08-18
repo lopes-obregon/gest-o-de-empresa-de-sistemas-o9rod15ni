@@ -14,11 +14,9 @@ routerAdd(
     }
 
     const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
-    if (authToken) {
-      headers['Authorization'] = 'Bearer ' + authToken
-      headers['CF-Access-Client-Id'] = cfClientId
-      headers['CF-Access-Client-Secret'] = cfClientSecret
-    }
+    headers['Authorization'] = authToken ? 'Bearer ' + authToken : ''
+    headers['CF-Access-Client-Id'] = cfClientId
+    headers['CF-Access-Client-Secret'] = cfClientSecret
 
     let res
     try {

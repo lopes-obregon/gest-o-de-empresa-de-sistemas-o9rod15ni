@@ -20,12 +20,19 @@ onRecordAfterUpdateSuccess((e) => {
     payment_status: mappedStatus,
   })
 
+  const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
+  const cfClientId = $secrets.get('CF_Access_Client_Id') || ''
+  const cfClientSecret = $secrets.get('CF-Access-Client-Secret') || ''
+
   try {
     var res = $http.send({
       url: 'https://api.vlsolucoesia.com.br/backend/v1/users',
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: authToken ? 'Bearer ' + authToken : '',
+        'CF-Access-Client-Id': cfClientId,
+        'CF-Access-Client-Secret': cfClientSecret,
       },
       body: requestBody,
       timeout: 30,
