@@ -23,17 +23,12 @@ onRecordAfterUpdateSuccess((e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
   const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
   const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
-  let targetUrl =
-    $secrets.get('API_BRIDE') ||
-    $secrets.get('API_DEV_BRIDE') ||
-    $secrets.get('EXTERNAL_SYSTEM_API_URL') ||
-    'https://api.vlsolucoesia.com.br'
+  let targetUrl = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
 
   if (targetUrl.endsWith('/')) {
-    targetUrl = targetUrl.slice(0, -1)
-  }
-  if (!targetUrl.endsWith('/backend/v1/users') && !targetUrl.endsWith('/users')) {
-    targetUrl = targetUrl + '/backend/v1/users'
+    targetUrl = targetUrl + 'users'
+  } else if (!targetUrl.endsWith('/')) {
+    targetUrl = targetUrl + '/users'
   }
 
   try {
