@@ -5,6 +5,7 @@ import {
   updateSubscriber,
   deleteSubscriber,
   pullExternalSubscribers,
+  checkSubscriberExpiry,
   SystemSubscriber,
 } from '@/services/system-subscribers'
 import { useAuth } from '@/hooks/use-auth'
@@ -35,9 +36,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Trash2, Search, AlertTriangle, Users2, RefreshCw } from 'lucide-react'
+import { Trash2, Search, AlertTriangle, Users2, RefreshCw, BellRing } from 'lucide-react'
 import { SubscriberFormDialog } from '@/components/SubscriberFormDialog'
 import { useToast } from '@/hooks/use-toast'
+import { formatDate } from '@/lib/format'
 
 export default function Subscribers() {
   const { user: currentUser } = useAuth()
@@ -47,6 +49,7 @@ export default function Subscribers() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [syncing, setSyncing] = useState(false)
+  const [checkingExpiry, setCheckingExpiry] = useState(false)
 
   const loadData = async () => {
     const s = await getSubscribers()
@@ -104,6 +107,44 @@ export default function Subscribers() {
     }
   }
 
+  const handleCheckExpiry = async () => {
+    setCheckingExpiry(true)
+    try {
+      const result = await checkSubscriberExpiry()
+      toast({
+        title: 'Verificação concluída',
+        description: `${result.notified} notificações enviadas, ${result.skipped} ignorados, ${result.errors} erros.`,
+      })
+      loadData()
+    } catch (err: any) {
+      const serverMessage = err?.response?.data?.message || err?.message
+      toast({
+        title: 'Falha ao verificar vencimentos',
+        description: serverMessage || 'Erro ao executar verificação.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCheckingExpiry(false)
+    }
+  }
+
+  const getDaysRemaining = (expiryDateStr?: string): number | null => {
+    if (!expiryDateStr) return null
+    try {
+      const expiry = new Date(expiryDateStr)
+      if (isNaN(expiry.getTime())) return null
+      const now = new Date()
+      const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+      const expiryUtc = new Date(
+        Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()),
+      )
+      const diffMs = expiryUtc.getTime() - todayUtc.getTime()
+      return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    } catch {
+      return null
+    }
+  }
+
   if (currentUser?.role !== 'admin') {
     return <Navigate to="/" replace />
   }
@@ -138,7 +179,16 @@ export default function Subscribers() {
             Clientes do sistema integrado e seus status de pagamento.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCheckExpiry}
+            disabled={checkingExpiry}
+            className="border-amber-200 text-amber-700 hover:bg-amber-50"
+          >
+            <BellRing className={`mr-2 h-4 w-4 ${checkingExpiry ? 'animate-spin' : ''}`} />
+            {checkingExpiry ? 'Verificando...' : 'Verificar Vencimentos'}
+          </Button>
           <Button
             variant="outline"
             onClick={handleSync}
@@ -206,83 +256,113 @@ export default function Subscribers() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>ID Externo</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Dias Restantes</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead>Acesso</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((s) => (
-                    <TableRow
-                      key={s.id}
-                      className={s.payment_status === 'pendente' ? 'bg-red-50/50' : ''}
-                    >
-                      <TableCell className="font-medium">{s.name}</TableCell>
-                      <TableCell className="text-slate-600">{s.email}</TableCell>
-                      <TableCell className="text-slate-500 text-sm">
-                        {s.external_id || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => togglePaymentStatus(s)}
-                          className="inline-flex items-center"
-                        >
+                  {filtered.map((s) => {
+                    const daysRemaining = getDaysRemaining(s.expiry_date)
+                    const isExpired = daysRemaining !== null && daysRemaining <= 0
+                    const isRowHighlighted = s.payment_status === 'pendente' || isExpired
+
+                    return (
+                      <TableRow key={s.id} className={isRowHighlighted ? 'bg-red-50/50' : ''}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell className="text-slate-600">{s.email}</TableCell>
+                        <TableCell className="text-slate-500 text-sm">
+                          {s.external_id || '—'}
+                        </TableCell>
+                        <TableCell className="text-slate-600 text-sm">
+                          {s.expiry_date ? formatDate(s.expiry_date) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {daysRemaining === null ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-slate-50 text-slate-500 border-slate-200"
+                            >
+                              —
+                            </Badge>
+                          ) : daysRemaining > 7 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-medium">
+                              {daysRemaining} dias
+                            </Badge>
+                          ) : daysRemaining > 0 ? (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none font-medium">
+                              {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none font-medium">
+                              Vencido ({Math.abs(daysRemaining)}d)
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => togglePaymentStatus(s)}
+                            className="inline-flex items-center"
+                          >
+                            <Badge
+                              variant={s.payment_status === 'pendente' ? 'destructive' : 'default'}
+                              className={
+                                s.payment_status === 'pendente'
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer transition-colors'
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors'
+                              }
+                            >
+                              {s.payment_status === 'pendente' ? 'Pendente' : 'Em Dia'}
+                            </Badge>
+                          </button>
+                        </TableCell>
+                        <TableCell>
                           <Badge
-                            variant={s.payment_status === 'pendente' ? 'destructive' : 'default'}
+                            variant="secondary"
                             className={
-                              s.payment_status === 'pendente'
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer transition-colors'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors'
+                              s.access_status === 'active'
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'bg-slate-200 text-slate-500'
                             }
                           >
-                            {s.payment_status === 'pendente' ? 'Pendente' : 'Em Dia'}
+                            {s.access_status === 'active' ? 'Ativo' : 'Inativo'}
                           </Badge>
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            s.access_status === 'active'
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'bg-slate-200 text-slate-500'
-                          }
-                        >
-                          {s.access_status === 'active' ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <SubscriberFormDialog subscriber={s} onSaved={loadData} />
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-sm">
-                              <DialogHeader>
-                                <DialogTitle>Confirmar Exclusão</DialogTitle>
-                              </DialogHeader>
-                              <p className="text-sm text-slate-600 py-2">
-                                Deseja realmente excluir o assinante <strong>{s.name}</strong>?
-                              </p>
-                              <div className="flex justify-end gap-2 pt-2">
-                                <Button variant="outline">Cancelar</Button>
-                                <Button variant="destructive" onClick={() => handleDelete(s.id)}>
-                                  Excluir
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <SubscriberFormDialog subscriber={s} onSaved={loadData} />
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              </DialogTrigger>
+                              <DialogContent className="max-w-sm">
+                                <DialogHeader>
+                                  <DialogTitle>Confirmar Exclusão</DialogTitle>
+                                </DialogHeader>
+                                <p className="text-sm text-slate-600 py-2">
+                                  Deseja realmente excluir o assinante <strong>{s.name}</strong>?
+                                </p>
+                                <div className="flex justify-end gap-2 pt-2">
+                                  <Button variant="outline">Cancelar</Button>
+                                  <Button variant="destructive" onClick={() => handleDelete(s.id)}>
+                                    Excluir
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

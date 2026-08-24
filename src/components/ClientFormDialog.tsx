@@ -13,6 +13,7 @@ import { Plus, Upload, FileText, FileImage, X, Pencil } from 'lucide-react'
 import { createClient, updateClient, Client } from '@/services/clients'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
+import { cn } from '@/lib/utils'
 
 interface ClientFormDialogProps {
   client?: Client | null
@@ -269,8 +270,4 @@ export function ClientFormDialog({ client, trigger, onSaved }: ClientFormDialogP
       </DialogContent>
     </Dialog>
   )
-}
-
-function cn(...args: Parameters<typeof import('@/lib/utils').cn>) {
-  return import('@/lib/utils').then((m) => m.cn(...args))
 }

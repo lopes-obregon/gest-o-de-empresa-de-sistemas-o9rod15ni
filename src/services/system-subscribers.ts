@@ -7,6 +7,11 @@ export interface SystemSubscriber extends RecordModel {
   payment_status: 'em_dia' | 'pendente'
   access_status: 'active' | 'inactive'
   external_id?: string
+  expiry_date?: string
+  external_create_date?: string
+  last_notification_status?: string
+  last_notification_date?: string
+  system?: string
 }
 
 export const getSubscribers = () =>
@@ -30,7 +35,28 @@ export interface SyncResult {
   updated: number
   errors: number
   total: number
+  message?: string
+}
+
+export interface CheckExpiryResult {
+  success: boolean
+  total_checked: number
+  notified: number
+  skipped: number
+  errors: number
+  message?: string
+  details?: Array<{
+    email: string
+    status?: string
+    days_remaining?: number
+    action: string
+    success?: boolean
+    error?: string
+  }>
 }
 
 export const pullExternalSubscribers = (): Promise<SyncResult> =>
   pb.send('/backend/v1/pull-external-subscribers', { method: 'POST' })
+
+export const checkSubscriberExpiry = (): Promise<CheckExpiryResult> =>
+  pb.send('/backend/v1/check-expiry', { method: 'POST' })

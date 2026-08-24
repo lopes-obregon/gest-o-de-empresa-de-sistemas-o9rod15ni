@@ -33,12 +33,19 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
+  const formatDateForInput = (dateStr?: string) => {
+    if (!dateStr) return ''
+    return dateStr.substring(0, 10)
+  }
+
   const [formData, setFormData] = useState({
     name: subscriber?.name || '',
     email: subscriber?.email || '',
     payment_status: subscriber?.payment_status || 'em_dia',
     access_status: subscriber?.access_status || 'active',
     external_id: subscriber?.external_id || '',
+    expiry_date: formatDateForInput(subscriber?.expiry_date),
+    external_create_date: formatDateForInput(subscriber?.external_create_date),
   })
 
   const resetForm = useCallback(() => {
@@ -48,6 +55,8 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
       payment_status: subscriber?.payment_status || 'em_dia',
       access_status: subscriber?.access_status || 'active',
       external_id: subscriber?.external_id || '',
+      expiry_date: formatDateForInput(subscriber?.expiry_date),
+      external_create_date: formatDateForInput(subscriber?.external_create_date),
     })
     setFieldErrors({})
   }, [subscriber])
@@ -58,12 +67,13 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
     setFieldErrors({})
 
     try {
-      const payload = {
+      const payload: Partial<SystemSubscriber> = {
         name: formData.name,
         email: formData.email,
-        payment_status: formData.payment_status,
-        access_status: formData.access_status,
+        payment_status: formData.payment_status as 'em_dia' | 'pendente',
+        access_status: formData.access_status as 'active' | 'inactive',
         external_id: formData.external_id,
+        expiry_date: formData.expiry_date ? `${formData.expiry_date} 00:00:00.000Z` : '',
       }
 
       if (subscriber) {
@@ -132,7 +142,9 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
               <Label>Status de Pagamento</Label>
               <Select
                 value={formData.payment_status}
-                onValueChange={(v) => setFormData({ ...formData, payment_status: v })}
+                onValueChange={(v: 'em_dia' | 'pendente') =>
+                  setFormData({ ...formData, payment_status: v })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -147,7 +159,9 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
               <Label>Status de Acesso</Label>
               <Select
                 value={formData.access_status}
-                onValueChange={(v) => setFormData({ ...formData, access_status: v })}
+                onValueChange={(v: 'active' | 'inactive') =>
+                  setFormData({ ...formData, access_status: v })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -167,6 +181,30 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
               placeholder="Mapeamento para sistema externo"
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Data de Vencimento</Label>
+              <Input
+                type="date"
+                value={formData.expiry_date}
+                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+              />
+              {fieldErrors.expiry_date && (
+                <p className="text-sm text-red-500">{fieldErrors.expiry_date}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Cadastro Externo</Label>
+              <Input
+                type="date"
+                value={formData.external_create_date}
+                disabled
+                className="bg-slate-50 text-slate-500 cursor-not-allowed"
+              />
+            </div>
+          </div>
+
           <Button
             type="submit"
             className="w-full bg-indigo-600 hover:bg-indigo-700"

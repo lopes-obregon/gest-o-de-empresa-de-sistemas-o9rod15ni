@@ -7,8 +7,8 @@ routerAdd(
       baseUrl = 'https://api.vlsolucoesia.com.br'
     }
     const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
-    let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID')
-    let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET')
+    let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
+    let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
     const headers = {
       'Content-Type': 'application/json',
     }
@@ -97,9 +97,35 @@ routerAdd(
       }
 
       const name = (u.name || '').trim() || email
-      const externalId = u.external_id || ''
+      const externalId = u.external_id || u.id || ''
       const rawStatus = (u.payment_status || '').trim().toLowerCase()
       const paymentStatus = rawStatus === 'paid' ? 'em_dia' : 'pendente'
+
+      // Tratar CreateDate e create_date (case insensitive)
+      let rawCreateDate =
+        u.CreateDate || u.create_date || u.createdate || u.created_at || u.createdAt || null
+      if (!rawCreateDate) {
+        for (const k of Object.keys(u)) {
+          if (k.toLowerCase() === 'createdate' || k.toLowerCase() === 'create_date') {
+            rawCreateDate = u[k]
+            break
+          }
+        }
+      }
+
+      let parsedCreateDateStr = null
+      let parsedExpiryDateStr = null
+
+      if (rawCreateDate) {
+        try {
+          const parsedDate = new Date(rawCreateDate)
+          if (!isNaN(parsedDate.getTime())) {
+            parsedCreateDateStr = parsedDate.toISOString().replace('T', ' ').substring(0, 19)
+            const expiryDateObj = new Date(parsedDate.getTime() + 30 * 24 * 60 * 60 * 1000)
+            parsedExpiryDateStr = expiryDateObj.toISOString().replace('T', ' ').substring(0, 19)
+          }
+        } catch (_) {}
+      }
 
       let existing = null
       try {
@@ -110,10 +136,26 @@ routerAdd(
         const currentStatus = existing.getString('payment_status')
         const currentName = existing.getString('name')
         const currentExternalId = existing.getString('external_id')
-        const needsUpdate =
+        const currentCreateDate = existing.getString('external_create_date')
+        const currentExpiryDate = existing.getString('expiry_date')
+
+        let needsUpdate =
           currentStatus !== paymentStatus ||
           currentName !== name ||
           currentExternalId !== externalId
+
+        if (
+          parsedCreateDateStr &&
+          (!currentCreateDate || currentCreateDate !== parsedCreateDateStr)
+        ) {
+          needsUpdate = true
+        }
+        if (
+          parsedExpiryDateStr &&
+          (!currentExpiryDate || currentExpiryDate !== parsedExpiryDateStr)
+        ) {
+          needsUpdate = true
+        }
 
         if (needsUpdate) {
           try {
@@ -121,6 +163,12 @@ routerAdd(
             existing.set('payment_status', paymentStatus)
             if (externalId) {
               existing.set('external_id', externalId)
+            }
+            if (parsedCreateDateStr) {
+              existing.set('external_create_date', parsedCreateDateStr)
+            }
+            if (parsedExpiryDateStr) {
+              existing.set('expiry_date', parsedExpiryDateStr)
             }
             $app.save(existing)
             updated++
@@ -147,6 +195,12 @@ routerAdd(
           record.set('access_status', 'active')
           if (externalId) {
             record.set('external_id', externalId)
+          }
+          if (parsedCreateDateStr) {
+            record.set('external_create_date', parsedCreateDateStr)
+          }
+          if (parsedExpiryDateStr) {
+            record.set('expiry_date', parsedExpiryDateStr)
           }
           $app.save(record)
           created++

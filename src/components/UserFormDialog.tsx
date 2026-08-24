@@ -136,7 +136,7 @@ export function UserFormDialog({ user, trigger, onSaved }: UserFormDialogProps) 
             <Label>Função</Label>
             <Select
               value={formData.role}
-              onValueChange={(v) => setFormData({ ...formData, role: v })}
+              onValueChange={(v: 'admin' | 'member') => setFormData({ ...formData, role: v })}
             >
               <SelectTrigger>
                 <SelectValue />

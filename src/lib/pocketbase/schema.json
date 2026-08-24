@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-18T19:50:13.692Z",
+  "generatedAt": "2026-08-24T20:13:03.724Z",
   "collections": [
     {
       "name": "users",
@@ -425,6 +425,30 @@
         {
           "name": "system",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "expiry_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "external_create_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_notification_status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_notification_date",
+          "type": "date",
           "required": false,
           "system": false
         }
