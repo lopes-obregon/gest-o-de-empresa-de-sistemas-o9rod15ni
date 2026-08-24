@@ -23,8 +23,12 @@ onRecordAfterUpdateSuccess((e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
   const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
   const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
-  const url = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
+  const url = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
   console.log('Entrou no mudar Pagamento! ', url)
+  if (url && url.trim() !== '') {
+    url = url + '/users'
+  }
+  console.log('Entrou no mudar Pagamento!  depois do tratamento', url)
   try {
     var res = $http.send({
       url: 'https://api.vlsolucoesia.com.br/backend/v1/users',
