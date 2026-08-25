@@ -1,3 +1,4 @@
+const {adicionar30Dias, CalclarDiasRestantes} = require(`${__hooks}/utils/dateUtils.js`)
 routerAdd('POST', '/backend/v1/sync-users', (e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
 
@@ -20,7 +21,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   var email = (body.email || '').trim()
   var name = (body.name || '').trim()
   var paymentStatus = (body.payment_status || '').trim()
-
+  var createDate = (body.create_date || body.CreateDate || '').trim()
   if (!email && !externalId) {
     return e.badRequestError('Either email or external_id is required')
   }
@@ -57,8 +58,14 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     if (email) {
       existingRecord.set('email', email)
     }
+    //colocar aqui
+    if (createDate) 
+      {
+        existingRecord.set('external_create_date', createDate)
+        const expiryDate = adicionar30Dias(createDate)
+        existingRecord.set('expiry_date', expiryDate)
+      }
     $app.save(existingRecord)
-
     $app
       .logger()
       .info(
@@ -69,6 +76,10 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
         email,
         'external_id',
         externalId,
+        'external_create_date',
+        createDate,
+        'expiry_date',
+        existingRecord.getString('expiry_date'),
       )
 
     return e.json(200, {
@@ -84,6 +95,11 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   newRecord.set('email', email || externalId + '@imported.local')
   newRecord.set('payment_status', internalStatus)
   newRecord.set('access_status', 'active')
+  newRecord.set('external_create_date', createDate)
+  if (createDate) {
+    const expiryDate = adicionar30Dias(createDate)
+    newRecord.set('expiry_date', expiryDate)
+  }
   if (externalId) {
     newRecord.set('external_id', externalId)
   }
@@ -99,6 +115,10 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
       email,
       'external_id',
       externalId,
+      'external_create_date',
+      createDate,
+      'expiry_date',
+      newRecord.getString('expiry_date'),
     )
 
   return e.json(201, {
@@ -108,3 +128,4 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     message: 'Subscriber created successfully',
   })
 })
+

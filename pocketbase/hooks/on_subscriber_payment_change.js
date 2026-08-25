@@ -31,6 +31,7 @@ onRecordAfterUpdateSuccess((e) => {
     targetUrl = targetUrl + '/users'
   }
   console.log('Url completa:', targetUrl)
+ 
   try {
     var res = $http.send({
       url: targetUrl,

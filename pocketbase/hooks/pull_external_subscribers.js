@@ -2,11 +2,14 @@ routerAdd(
   'POST',
   '/backend/v1/pull-external-subscribers',
   (e) => {
-    let baseUrl = $secrets.get('EXTERNAL_SYSTEM_API_URL') || ''
-    if (!baseUrl || baseUrl.indexOf('internal.goskip.dev') !== -1) {
-      baseUrl = 'https://api.vlsolucoesia.com.br'
+    let baseUrl = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
+    if (!baseUrl || baseUrl.endsWith('/')) {
+      baseUrl = baseUrl + 'users';
     }
-    const url = baseUrl.replace(/\/+$/, '') + '/backend/v1/users'
+    else if (!baseUrl.endsWith('/')) {
+      baseUrl = baseUrl + '/users';
+    }
+   
     let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
     let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
     const headers = {
@@ -21,7 +24,7 @@ routerAdd(
     let res
     try {
       res = $http.send({
-        url: url,
+        url: baseUrl,
         method: 'GET',
         headers: headers,
         timeout: 30,
