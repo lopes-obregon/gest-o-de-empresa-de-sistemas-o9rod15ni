@@ -173,15 +173,11 @@ routerAdd(
     let baseUrl = $secrets.get('API_DEV_BRIDE') || $secrets.get('API_BRIDE') || ''
     if (!baseUrl && baseUrl.endsWith('/')) {
       baseUrl = baseUrl + 'mensagem'
-    }
-    else if(!baseUrl && !baseUrl.endsWith('/')) 
-    {
+    } else if (!baseUrl && !baseUrl.endsWith('/')) {
       baseUrl = baseUrl + '/mensagem'
     }
-    
 
-    
-    const notifyUrl = baseUrl;
+    const notifyUrl = baseUrl
     const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
     const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
     const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
