@@ -7,7 +7,7 @@ function add30Days(dataStr) {
   //add 30 day in the data
   data.setDate(data.getDate() + 30)
   // formatando de volta ao padrão dd/mm/yyyy, hh:mm:ss
-  return data.tolocaleString('pt-BR')
+  return data.toLocaleString('pt-BR')
 }
 // Função para calcular a diferença em dias entre a data final e a data atual
 function CalclarDiasRestantes(finalDateStr) {

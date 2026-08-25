@@ -1,4 +1,4 @@
-const { adicionar30Dias, CalclarDiasRestantes } = require(`${__hooks}/utils/dateUtils.js`)
+const { add30Days, CalclarDiasRestantes } = require(`${__hooks}/utils/dateUtils.js`)
 routerAdd('POST', '/backend/v1/sync-users', (e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
 
@@ -61,7 +61,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     //colocar aqui
     if (createDate) {
       existingRecord.set('external_create_date', createDate)
-      const expiryDate = adicionar30Dias(createDate)
+      const expiryDate = add30Days(createDate)
       existingRecord.set('expiry_date', expiryDate)
     }
     $app.save(existingRecord)
@@ -96,7 +96,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   newRecord.set('access_status', 'active')
   newRecord.set('external_create_date', createDate)
   if (createDate) {
-    const expiryDate = adicionar30Dias(createDate)
+    const expiryDate = add30Days(createDate)
     newRecord.set('expiry_date', expiryDate)
   }
   if (externalId) {
