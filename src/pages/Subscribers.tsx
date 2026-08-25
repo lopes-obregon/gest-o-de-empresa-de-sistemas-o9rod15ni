@@ -82,9 +82,16 @@ export default function Subscribers() {
         description: `${result.created} novos assinantes, ${result.updated} atualizados.`,
       })
       loadData()
-    } catch (err: any) {
-      const status = err?.status || err?.response?.status || 0
-      const serverMessage = err?.response?.data?.error || err?.message
+    } catch (err: unknown) {
+      const errorObj = err as
+        | {
+            status?: number
+            response?: { status?: number; data?: { error?: string } }
+            message?: string
+          }
+        | undefined
+      const status = errorObj?.status || errorObj?.response?.status || 0
+      const serverMessage = errorObj?.response?.data?.error || errorObj?.message
       let description = 'Não foi possível sincronizar com o sistema externo.'
 
       if (serverMessage) {
@@ -116,8 +123,11 @@ export default function Subscribers() {
         description: `${result.notified} notificações enviadas, ${result.skipped} ignorados, ${result.errors} erros.`,
       })
       loadData()
-    } catch (err: any) {
-      const serverMessage = err?.response?.data?.message || err?.message
+    } catch (err: unknown) {
+      const errorObj = err as
+        | { response?: { data?: { message?: string } }; message?: string }
+        | undefined
+      const serverMessage = errorObj?.response?.data?.message || errorObj?.message
       toast({
         title: 'Falha ao verificar vencimentos',
         description: serverMessage || 'Erro ao executar verificação.',

@@ -41,10 +41,17 @@ export default function Finance() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    description: string
+    amount: string
+    type: 'entrada' | 'saida'
+    category: string
+    date: string
+    project: string
+  }>({
     description: '',
     amount: '',
-    type: 'entrada' as const,
+    type: 'entrada',
     category: '',
     date: new Date().toISOString().split('T')[0],
     project: 'none',
@@ -107,7 +114,9 @@ export default function Finance() {
                   <Label>Tipo</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(v: any) => setFormData({ ...formData, type: v })}
+                    onValueChange={(v: 'entrada' | 'saida') =>
+                      setFormData({ ...formData, type: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />

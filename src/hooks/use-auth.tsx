@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import pb from '@/lib/pocketbase/client'
 
+import type { RecordModel } from 'pocketbase'
+
 interface AuthContextType {
-  user: any
+  user: RecordModel | null
   isAuthenticated: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: unknown }>
   signOut: () => void
   loading: boolean
 }
@@ -18,7 +20,9 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(pb.authStore.isValid ? pb.authStore.record : null)
+  const [user, setUser] = useState<RecordModel | null>(
+    pb.authStore.isValid ? pb.authStore.record : null,
+  )
   const [isAuthenticated, setIsAuthenticated] = useState(pb.authStore.isValid)
   const [loading, setLoading] = useState(true)
 

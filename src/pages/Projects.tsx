@@ -42,12 +42,20 @@ export default function Projects() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    client: string
+    start_date: string
+    end_date: string
+    status: 'lead' | 'em_desenvolvimento' | 'pausado' | 'finalizado'
+    budget: string
+    description: string
+  }>({
     name: '',
     client: '',
     start_date: '',
     end_date: '',
-    status: 'lead' as const,
+    status: 'lead',
     budget: '',
     description: '',
   })
@@ -167,7 +175,9 @@ export default function Projects() {
                   <Select
                     required
                     value={formData.status}
-                    onValueChange={(v: any) => setFormData({ ...formData, status: v })}
+                    onValueChange={(v: 'lead' | 'em_desenvolvimento' | 'pausado' | 'finalizado') =>
+                      setFormData({ ...formData, status: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
