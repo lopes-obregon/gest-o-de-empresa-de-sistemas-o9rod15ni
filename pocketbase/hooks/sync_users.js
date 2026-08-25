@@ -1,7 +1,59 @@
-const { add30Days, CalclarDiasRestantes } = require(`${__hooks}/utils/dateUtils.js`)
 routerAdd('POST', '/backend/v1/sync-users', (e) => {
-  const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
+  function formatIsoString(d) {
+    var year = d.getUTCFullYear()
+    var month = String(d.getUTCMonth() + 1).padStart(2, '0')
+    var day = String(d.getUTCDate()).padStart(2, '0')
+    var hours = String(d.getUTCHours()).padStart(2, '0')
+    var minutes = String(d.getUTCMinutes()).padStart(2, '0')
+    var seconds = String(d.getUTCSeconds()).padStart(2, '0')
+    return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds
+  }
 
+  function parseDateInput(inputStr) {
+    if (!inputStr) return null
+    var str = String(inputStr).trim()
+    if (!str) return null
+
+    // Pattern: dd/mm/yyyy [hh:mm[:ss]] or dd/mm/yyyy, [hh:mm[:ss]]
+    var brMatch = str.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/,
+    )
+    if (brMatch) {
+      var day = parseInt(brMatch[1], 10)
+      var month = parseInt(brMatch[2], 10) - 1
+      var year = parseInt(brMatch[3], 10)
+      var hours = brMatch[4] ? parseInt(brMatch[4], 10) : 0
+      var minutes = brMatch[5] ? parseInt(brMatch[5], 10) : 0
+      var seconds = brMatch[6] ? parseInt(brMatch[6], 10) : 0
+      var d = new Date(Date.UTC(year, month, day, hours, minutes, seconds))
+      if (!isNaN(d.getTime())) {
+        return d
+      }
+    }
+
+    // Try standard JS Date parsing (handles ISO format: YYYY-MM-DD, YYYY-MM-DDTHH:mm:ssZ, etc.)
+    var parsed = new Date(str)
+    if (!isNaN(parsed.getTime())) {
+      return parsed
+    }
+
+    return null
+  }
+
+  function parseToIso(inputStr) {
+    var d = parseDateInput(inputStr)
+    if (!d) return null
+    return formatIsoString(d)
+  }
+
+  function add30Days(dataStr) {
+    var d = parseDateInput(dataStr)
+    if (!d) return null
+    var future = new Date(d.getTime() + 30 * 24 * 60 * 60 * 1000)
+    return formatIsoString(future)
+  }
+
+  const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
   const body = e.requestInfo().body || {}
 
   if (!authToken) {
@@ -17,11 +69,13 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   if (providedToken !== authToken) {
     return e.json(401, { error: 'Unauthorized' })
   }
+
   var externalId = (body.external_id || '').trim()
   var email = (body.email || '').trim()
   var name = (body.name || '').trim()
   var paymentStatus = (body.payment_status || '').trim()
-  var createDate = (body.create_date || body.CreateDate || '').trim()
+  var rawCreateDate = (body.create_date || body.CreateDate || '').trim()
+
   if (!email && !externalId) {
     return e.badRequestError('Either email or external_id is required')
   }
@@ -32,6 +86,9 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   } else if (paymentStatus === 'pending' || paymentStatus === 'overdue') {
     internalStatus = 'pendente'
   }
+
+  var formattedCreateDate = parseToIso(rawCreateDate)
+  var expiryDate = add30Days(rawCreateDate)
 
   var existingRecord = null
 
@@ -58,10 +115,12 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     if (email) {
       existingRecord.set('email', email)
     }
-    //colocar aqui
-    if (createDate) {
-      existingRecord.set('external_create_date', createDate)
-      const expiryDate = add30Days(createDate)
+    if (formattedCreateDate) {
+      existingRecord.set('external_create_date', formattedCreateDate)
+    } else if (rawCreateDate) {
+      existingRecord.set('external_create_date', rawCreateDate)
+    }
+    if (expiryDate) {
       existingRecord.set('expiry_date', expiryDate)
     }
     $app.save(existingRecord)
@@ -76,7 +135,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
         'external_id',
         externalId,
         'external_create_date',
-        createDate,
+        existingRecord.getString('external_create_date'),
         'expiry_date',
         existingRecord.getString('expiry_date'),
       )
@@ -94,9 +153,12 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   newRecord.set('email', email || externalId + '@imported.local')
   newRecord.set('payment_status', internalStatus)
   newRecord.set('access_status', 'active')
-  newRecord.set('external_create_date', createDate)
-  if (createDate) {
-    const expiryDate = add30Days(createDate)
+  if (formattedCreateDate) {
+    newRecord.set('external_create_date', formattedCreateDate)
+  } else if (rawCreateDate) {
+    newRecord.set('external_create_date', rawCreateDate)
+  }
+  if (expiryDate) {
     newRecord.set('expiry_date', expiryDate)
   }
   if (externalId) {
@@ -115,7 +177,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
       'external_id',
       externalId,
       'external_create_date',
-      createDate,
+      newRecord.getString('external_create_date'),
       'expiry_date',
       newRecord.getString('expiry_date'),
     )
