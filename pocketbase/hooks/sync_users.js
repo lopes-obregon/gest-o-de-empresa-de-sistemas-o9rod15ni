@@ -1,4 +1,4 @@
-const {adicionar30Dias, CalclarDiasRestantes} = require(`${__hooks}/utils/dateUtils.js`)
+const { adicionar30Dias, CalclarDiasRestantes } = require(`${__hooks}/utils/dateUtils.js`)
 routerAdd('POST', '/backend/v1/sync-users', (e) => {
   const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
 
@@ -59,12 +59,11 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
       existingRecord.set('email', email)
     }
     //colocar aqui
-    if (createDate) 
-      {
-        existingRecord.set('external_create_date', createDate)
-        const expiryDate = adicionar30Dias(createDate)
-        existingRecord.set('expiry_date', expiryDate)
-      }
+    if (createDate) {
+      existingRecord.set('external_create_date', createDate)
+      const expiryDate = adicionar30Dias(createDate)
+      existingRecord.set('expiry_date', expiryDate)
+    }
     $app.save(existingRecord)
     $app
       .logger()
@@ -128,4 +127,3 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     message: 'Subscriber created successfully',
   })
 })
-

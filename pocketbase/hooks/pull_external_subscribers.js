@@ -4,12 +4,11 @@ routerAdd(
   (e) => {
     let baseUrl = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
     if (!baseUrl || baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + 'users';
+      baseUrl = baseUrl + 'users'
+    } else if (!baseUrl.endsWith('/')) {
+      baseUrl = baseUrl + '/users'
     }
-    else if (!baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + '/users';
-    }
-   
+
     let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
     let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
     const headers = {

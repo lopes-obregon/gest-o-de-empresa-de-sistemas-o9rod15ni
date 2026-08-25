@@ -4,8 +4,8 @@ services:
     container_name: GestorEmpresaSistemas-dev
     build: .
     ports:
-      - "8081:3000" # Mapeia a porta 3000 do container para a porta 8081 do host
-      - "8090:8090" # Mapeia a porta 8090 do container para a porta 8090 do host
+      - '8081:3000' # Mapeia a porta 3000 do container para a porta 8081 do host
+      - '8090:8090' # Mapeia a porta 8090 do container para a porta 8090 do host
     volumes:
       # Mapeia o diretório local para dentro do container (permite editar o código e ver na hora)
       - .:/app
@@ -14,4 +14,4 @@ services:
     environment:
       - NODE_ENV=development
       # Ativa o polling se o Hot Reload não atualizar automaticamente
-     # - CHOKIDAR_USEPOLLING=true
+      # - CHOKIDAR_USEPOLLING=true
