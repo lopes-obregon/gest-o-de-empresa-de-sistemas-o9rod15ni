@@ -207,9 +207,7 @@ routerAdd(
           }
           if (parsedExpiryDateStr) {
             record.set('expiry_date', parsedExpiryDateStr)
-          }
-          else
-          {
+          } else {
             record.set('expiry_date', CalcDateVencimento(parsedCreateDateStr))
           }
           $app.save(record)
@@ -237,17 +235,17 @@ routerAdd(
 //retorna verdadeiro se o intervalo das datas estão em 30 dias, caso contrário retorna falso
 function verifyDate(dateStr) {
   if (!dateStr) return false
-  const date = new Date(dateStr);
-  const dateNow = new Date();
-  const diffEmMs = Math.abs(dateNow.getTime() - date.getTime());
-  const diffEmDias = diffEmMs / (1000 * 60 * 60 * 24);
+  const date = new Date(dateStr)
+  const dateNow = new Date()
+  const diffEmMs = Math.abs(dateNow.getTime() - date.getTime())
+  const diffEmDias = diffEmMs / (1000 * 60 * 60 * 24)
 
-  return diffEmDias <= 30;
+  return diffEmDias <= 30
 }
 //retorna a data de vencimento, que é 30 dias após a data de criação
 function CalcDateVencimento(dateStr) {
   if (!dateStr) return null
-  const date = new Date(dateStr);
-  const vencimentoDate = new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000);
-  return vencimentoDate.toISOString().replace('T', ' ').substring(0, 19);
+  const date = new Date(dateStr)
+  const vencimentoDate = new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000)
+  return vencimentoDate.toISOString().replace('T', ' ').substring(0, 19)
 }
