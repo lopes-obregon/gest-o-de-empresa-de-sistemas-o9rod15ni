@@ -73,7 +73,7 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   var externalId = (body.external_id || '').trim()
   var email = (body.email || '').trim()
   var name = (body.name || '').trim()
- // var paymentStatus = (body.payment_status || '').trim()
+  // var paymentStatus = (body.payment_status || '').trim()
   var paymentStatus = 'paid' // Default to 'paid' for now, adjust as needed based on your external system's data
 
   var rawCreateDate = (body.create_date || body.CreateDate || '').trim()
