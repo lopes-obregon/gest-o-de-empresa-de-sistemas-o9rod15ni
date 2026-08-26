@@ -193,6 +193,10 @@ routerAdd(
           const record = new Record(col)
           record.set('name', name)
           record.set('email', email)
+          if (verifyDate(parsedCreateDateStr)) {
+            //se estiver dentro do intervalo de 30 dias;
+            paymentStatus = 'em_dia'
+          }
           record.set('payment_status', paymentStatus)
           record.set('access_status', 'active')
           if (externalId) {
@@ -203,6 +207,10 @@ routerAdd(
           }
           if (parsedExpiryDateStr) {
             record.set('expiry_date', parsedExpiryDateStr)
+          }
+          else
+          {
+            record.set('expiry_date', CalcDateVencimento(parsedCreateDateStr))
           }
           $app.save(record)
           created++
@@ -226,3 +234,20 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
+//retorna verdadeiro se o intervalo das datas estão em 30 dias, caso contrário retorna falso
+function verifyDate(dateStr) {
+  if (!dateStr) return false
+  const date = new Date(dateStr);
+  const dateNow = new Date();
+  const diffEmMs = Math.abs(dateNow.getTime() - date.getTime());
+  const diffEmDias = diffEmMs / (1000 * 60 * 60 * 24);
+
+  return diffEmDias <= 30;
+}
+//retorna a data de vencimento, que é 30 dias após a data de criação
+function CalcDateVencimento(dateStr) {
+  if (!dateStr) return null
+  const date = new Date(dateStr);
+  const vencimentoDate = new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000);
+  return vencimentoDate.toISOString().replace('T', ' ').substring(0, 19);
+}
