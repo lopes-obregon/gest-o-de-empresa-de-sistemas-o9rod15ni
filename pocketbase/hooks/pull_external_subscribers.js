@@ -2,6 +2,70 @@ routerAdd(
   'POST',
   '/backend/v1/pull-external-subscribers',
   (e) => {
+    function formatIsoDate(d) {
+      var year = d.getUTCFullYear()
+      var month = String(d.getUTCMonth() + 1).padStart(2, '0')
+      var day = String(d.getUTCDate()).padStart(2, '0')
+      var hours = String(d.getUTCHours()).padStart(2, '0')
+      var minutes = String(d.getUTCMinutes()).padStart(2, '0')
+      var seconds = String(d.getUTCSeconds()).padStart(2, '0')
+      return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds
+    }
+
+    function parseDateInput(inputStr) {
+      if (!inputStr) return null
+      var str = String(inputStr).trim()
+      if (!str) return null
+
+      // dd/mm/yyyy [hh:mm[:ss]]
+      var brMatch = str.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/,
+      )
+      if (brMatch) {
+        var day = parseInt(brMatch[1], 10)
+        var month = parseInt(brMatch[2], 10) - 1
+        var year = parseInt(brMatch[3], 10)
+        var hours = brMatch[4] ? parseInt(brMatch[4], 10) : 0
+        var minutes = brMatch[5] ? parseInt(brMatch[5], 10) : 0
+        var seconds = brMatch[6] ? parseInt(brMatch[6], 10) : 0
+        var d = new Date(Date.UTC(year, month, day, hours, minutes, seconds))
+        if (!isNaN(d.getTime())) {
+          return d
+        }
+      }
+
+      var parsed = new Date(str)
+      if (!isNaN(parsed.getTime())) {
+        return parsed
+      }
+
+      return null
+    }
+
+    function calculateDates(rawCreateDate, rawExpiryDate) {
+      var parsedCreate = parseDateInput(rawCreateDate)
+      var parsedExpiry = parseDateInput(rawExpiryDate)
+
+      var createDateStr = null
+      var expiryDateStr = null
+
+      if (parsedCreate) {
+        createDateStr = formatIsoDate(parsedCreate)
+      }
+
+      if (parsedExpiry) {
+        expiryDateStr = formatIsoDate(parsedExpiry)
+      } else if (parsedCreate) {
+        var future = new Date(parsedCreate.getTime() + 30 * 24 * 60 * 60 * 1000)
+        expiryDateStr = formatIsoDate(future)
+      }
+
+      return {
+        createDateStr: createDateStr,
+        expiryDateStr: expiryDateStr,
+      }
+    }
+
     let baseUrl = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
     if (!baseUrl || baseUrl.endsWith('/')) {
       baseUrl = baseUrl + 'users'
@@ -101,33 +165,37 @@ routerAdd(
       const name = (u.name || '').trim() || email
       const externalId = u.external_id || u.id || ''
       const rawStatus = (u.payment_status || '').trim().toLowerCase()
-      const paymentStatus = rawStatus === 'paid' ? 'em_dia' : 'pendente'
+      let paymentStatus = rawStatus === 'paid' ? 'em_dia' : 'pendente'
 
       // Tratar CreateDate e create_date (case insensitive)
       let rawCreateDate =
         u.CreateDate || u.create_date || u.createdate || u.created_at || u.createdAt || null
       if (!rawCreateDate) {
         for (const k of Object.keys(u)) {
-          if (k.toLowerCase() === 'createdate' || k.toLowerCase() === 'create_date') {
+          const lowerK = k.toLowerCase()
+          if (lowerK === 'createdate' || lowerK === 'create_date') {
             rawCreateDate = u[k]
             break
           }
         }
       }
 
-      let parsedCreateDateStr = null
-      let parsedExpiryDateStr = null
-
-      if (rawCreateDate) {
-        try {
-          const parsedDate = new Date(rawCreateDate)
-          if (!isNaN(parsedDate.getTime())) {
-            parsedCreateDateStr = parsedDate.toISOString().replace('T', ' ').substring(0, 19)
-            const expiryDateObj = new Date(parsedDate.getTime() + 30 * 24 * 60 * 60 * 1000)
-            parsedExpiryDateStr = expiryDateObj.toISOString().replace('T', ' ').substring(0, 19)
+      // Tratar ExpiryDate e expiry_date (case insensitive)
+      let rawExpiryDate =
+        u.ExpiryDate || u.expiry_date || u.expirydate || u.expires_at || u.expiresAt || null
+      if (!rawExpiryDate) {
+        for (const k of Object.keys(u)) {
+          const lowerK = k.toLowerCase()
+          if (lowerK === 'expirydate' || lowerK === 'expiry_date') {
+            rawExpiryDate = u[k]
+            break
           }
-        } catch (_) {}
+        }
       }
+
+      const dateResult = calculateDates(rawCreateDate, rawExpiryDate)
+      const parsedCreateDateStr = dateResult.createDateStr
+      let parsedExpiryDateStr = dateResult.expiryDateStr
 
       let existing = null
       try {
@@ -140,6 +208,18 @@ routerAdd(
         const currentExternalId = existing.getString('external_id')
         const currentCreateDate = existing.getString('external_create_date')
         const currentExpiryDate = existing.getString('expiry_date')
+
+        // Se o registro existente não tem expiry_date e a API não enviou CreateDate, tenta derivar do created existente
+        if (!parsedExpiryDateStr && !currentExpiryDate) {
+          const existingCreatedStr = existing.getString('created')
+          if (existingCreatedStr) {
+            const parsedExistingCreated = parseDateInput(existingCreatedStr)
+            if (parsedExistingCreated) {
+              const future = new Date(parsedExistingCreated.getTime() + 30 * 24 * 60 * 60 * 1000)
+              parsedExpiryDateStr = formatIsoDate(future)
+            }
+          }
+        }
 
         let needsUpdate =
           currentStatus !== paymentStatus ||
@@ -193,10 +273,6 @@ routerAdd(
           const record = new Record(col)
           record.set('name', name)
           record.set('email', email)
-          if (verifyDate(parsedCreateDateStr)) {
-            //se estiver dentro do intervalo de 30 dias;
-            paymentStatus = 'em_dia'
-          }
           record.set('payment_status', paymentStatus)
           record.set('access_status', 'active')
           if (externalId) {
@@ -205,11 +281,13 @@ routerAdd(
           if (parsedCreateDateStr) {
             record.set('external_create_date', parsedCreateDateStr)
           }
-          if (parsedExpiryDateStr) {
-            record.set('expiry_date', parsedExpiryDateStr)
-          } else {
-            record.set('expiry_date', CalcDateVencimento(parsedCreateDateStr))
+          if (!parsedExpiryDateStr) {
+            // Se não veio CreateDate da API externa, usa agora + 30 dias como fallback
+            const now = new Date()
+            const fallbackExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+            parsedExpiryDateStr = formatIsoDate(fallbackExpiry)
           }
+          record.set('expiry_date', parsedExpiryDateStr)
           $app.save(record)
           created++
         } catch (err) {
@@ -232,20 +310,3 @@ routerAdd(
   },
   $apis.requireAuth(),
 )
-//retorna verdadeiro se o intervalo das datas estão em 30 dias, caso contrário retorna falso
-function verifyDate(dateStr) {
-  if (!dateStr) return false
-  const date = new Date(dateStr)
-  const dateNow = new Date()
-  const diffEmMs = Math.abs(dateNow.getTime() - date.getTime())
-  const diffEmDias = diffEmMs / (1000 * 60 * 60 * 24)
-
-  return diffEmDias <= 30
-}
-//retorna a data de vencimento, que é 30 dias após a data de criação
-function CalcDateVencimento(dateStr) {
-  if (!dateStr) return null
-  const date = new Date(dateStr)
-  const vencimentoDate = new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000)
-  return vencimentoDate.toISOString().replace('T', ' ').substring(0, 19)
-}

@@ -35,6 +35,7 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
   let notifiedCount = 0
   let skippedCount = 0
   let errorCount = 0
+  let statusUpdatedCount = 0
 
   for (const record of records) {
     const rawExpiry = record.getString('expiry_date')
@@ -54,6 +55,27 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
     const diffMs = expiryUtcMidnight.getTime() - todayUtcMidnight.getTime()
     const daysRemaining = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
+    let recordModified = false
+
+    // Regra de vencimento automático: quando hoje >= expiry_date (daysRemaining <= 0), payment_status muda para pendente
+    if (daysRemaining <= 0) {
+      const currentPaymentStatus = record.getString('payment_status')
+      if (currentPaymentStatus !== 'pendente') {
+        record.set('payment_status', 'pendente')
+        recordModified = true
+        statusUpdatedCount++
+        $app
+          .logger()
+          .info(
+            'notify_subscriber_expiry: payment_status updated to pendente due to expiry',
+            'email',
+            record.getString('email'),
+            'expiry_date',
+            rawExpiry,
+          )
+      }
+    }
+
     let notificationStatus = null
     if (daysRemaining === 7) {
       notificationStatus = 'prestes_a_vencer'
@@ -62,12 +84,42 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
     }
 
     if (!notificationStatus) {
+      if (recordModified) {
+        try {
+          $app.save(record)
+        } catch (saveErr) {
+          $app
+            .logger()
+            .error(
+              'notify_subscriber_expiry: failed to save record status update',
+              'email',
+              record.getString('email'),
+              'error',
+              String(saveErr),
+            )
+        }
+      }
       skippedCount++
       continue
     }
 
     const lastStatus = record.getString('last_notification_status')
     if (lastStatus === notificationStatus) {
+      if (recordModified) {
+        try {
+          $app.save(record)
+        } catch (saveErr) {
+          $app
+            .logger()
+            .error(
+              'notify_subscriber_expiry: failed to save record status update',
+              'email',
+              record.getString('email'),
+              'error',
+              String(saveErr),
+            )
+        }
+      }
       skippedCount++
       continue
     }
@@ -120,6 +172,9 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
         $app.save(record)
         notifiedCount++
       } else {
+        if (recordModified) {
+          $app.save(record)
+        }
         $app
           .logger()
           .error(
@@ -136,6 +191,11 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
         errorCount++
       }
     } catch (err) {
+      if (recordModified) {
+        try {
+          $app.save(record)
+        } catch (_) {}
+      }
       $app
         .logger()
         .error(
@@ -159,6 +219,8 @@ cronAdd('notify_subscriber_expiry', '0 8 * * *', () => {
       records.length,
       'notified',
       notifiedCount,
+      'status_updated_pendente',
+      statusUpdatedCount,
       'skipped',
       skippedCount,
       'errors',
@@ -170,14 +232,15 @@ routerAdd(
   'POST',
   '/backend/v1/check-expiry',
   (e) => {
-    let baseUrl = $secrets.get('API_DEV_BRIDE') || $secrets.get('API_BRIDE') || ''
-    if (!baseUrl && baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + 'mensagem'
-    } else if (!baseUrl && !baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + '/mensagem'
+    let baseUrl =
+      $secrets.get('EXTERNAL_SYSTEM_API_URL') ||
+      $secrets.get('API_DEV_BRIDE') ||
+      $secrets.get('API_BRIDE') ||
+      ''
+    if (!baseUrl || baseUrl.indexOf('internal.goskip.dev') !== -1) {
+      baseUrl = 'https://api.vlsolucoesia.com.br'
     }
-
-    const notifyUrl = baseUrl
+    const notifyUrl = baseUrl.replace(/\/+$/, '') + '/mensagem'
     const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
     const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
     const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
@@ -208,6 +271,7 @@ routerAdd(
     let notifiedCount = 0
     let skippedCount = 0
     let errorCount = 0
+    let statusUpdatedCount = 0
     const details = []
 
     for (const record of records) {
@@ -228,6 +292,33 @@ routerAdd(
       const diffMs = expiryUtcMidnight.getTime() - todayUtcMidnight.getTime()
       const daysRemaining = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
+      const email = record.getString('email')
+      const name = record.getString('name')
+      const externalId = record.getString('external_id')
+      const formattedExpiry = rawExpiry.substring(0, 10)
+      const lastStatus = record.getString('last_notification_status')
+
+      let recordModified = false
+
+      // Regra de vencimento automático: quando hoje >= expiry_date (daysRemaining <= 0), payment_status muda para pendente
+      if (daysRemaining <= 0) {
+        const currentPaymentStatus = record.getString('payment_status')
+        if (currentPaymentStatus !== 'pendente') {
+          record.set('payment_status', 'pendente')
+          recordModified = true
+          statusUpdatedCount++
+          $app
+            .logger()
+            .info(
+              'check_expiry: payment_status updated to pendente due to expiry',
+              'email',
+              email,
+              'expiry_date',
+              rawExpiry,
+            )
+        }
+      }
+
       let notificationStatus = null
       if (daysRemaining === 7) {
         notificationStatus = 'prestes_a_vencer'
@@ -235,29 +326,55 @@ routerAdd(
         notificationStatus = 'vencido'
       }
 
-      const email = record.getString('email')
-      const name = record.getString('name')
-      const externalId = record.getString('external_id')
-      const formattedExpiry = rawExpiry.substring(0, 10)
-      const lastStatus = record.getString('last_notification_status')
-
       if (!notificationStatus) {
+        if (recordModified) {
+          try {
+            $app.save(record)
+          } catch (saveErr) {
+            $app
+              .logger()
+              .error(
+                'check_expiry: failed to save record status update',
+                'email',
+                email,
+                'error',
+                String(saveErr),
+              )
+          }
+        }
         skippedCount++
         details.push({
           email: email,
           days_remaining: daysRemaining,
           action: 'skipped_not_target_day',
+          status_updated: recordModified,
         })
         continue
       }
 
       if (lastStatus === notificationStatus) {
+        if (recordModified) {
+          try {
+            $app.save(record)
+          } catch (saveErr) {
+            $app
+              .logger()
+              .error(
+                'check_expiry: failed to save record status update',
+                'email',
+                email,
+                'error',
+                String(saveErr),
+              )
+          }
+        }
         skippedCount++
         details.push({
           email: email,
           status: notificationStatus,
           days_remaining: daysRemaining,
           action: 'already_notified',
+          status_updated: recordModified,
         })
         continue
       }
@@ -310,8 +427,12 @@ routerAdd(
             days_remaining: daysRemaining,
             action: 'notified',
             success: true,
+            status_updated: recordModified,
           })
         } else {
+          if (recordModified) {
+            $app.save(record)
+          }
           $app
             .logger()
             .error(
@@ -332,9 +453,15 @@ routerAdd(
             days_remaining: daysRemaining,
             action: 'failed',
             error: 'Status code ' + res.statusCode,
+            status_updated: recordModified,
           })
         }
       } catch (err) {
+        if (recordModified) {
+          try {
+            $app.save(record)
+          } catch (_) {}
+        }
         $app
           .logger()
           .error(
@@ -353,6 +480,7 @@ routerAdd(
           days_remaining: daysRemaining,
           action: 'failed',
           error: String(err),
+          status_updated: recordModified,
         })
       }
     }
@@ -361,6 +489,7 @@ routerAdd(
       success: true,
       total_checked: records.length,
       notified: notifiedCount,
+      status_updated_pendente: statusUpdatedCount,
       skipped: skippedCount,
       errors: errorCount,
       details: details,

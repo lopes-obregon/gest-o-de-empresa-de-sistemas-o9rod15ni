@@ -118,9 +118,13 @@ export default function Subscribers() {
     setCheckingExpiry(true)
     try {
       const result = await checkSubscriberExpiry()
+      const statusUpdateMsg =
+        result.status_updated_pendente && result.status_updated_pendente > 0
+          ? `, ${result.status_updated_pendente} alterados para pendente`
+          : ''
       toast({
         title: 'Verificação concluída',
-        description: `${result.notified} notificações enviadas, ${result.skipped} ignorados, ${result.errors} erros.`,
+        description: `${result.notified} notificações enviadas${statusUpdateMsg}, ${result.skipped} ignorados, ${result.errors} erros.`,
       })
       loadData()
     } catch (err: unknown) {
