@@ -14,4 +14,4 @@ services:
     environment:
       - NODE_ENV=development
       # Ativa o polling se o Hot Reload não atualizar automaticamente
-      # - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_USEPOLLING=true
