@@ -42,6 +42,7 @@ export interface CheckExpiryResult {
   success: boolean
   total_checked: number
   notified: number
+  status_updated_pendente?: number
   skipped: number
   errors: number
   message?: string
@@ -52,6 +53,7 @@ export interface CheckExpiryResult {
     action: string
     success?: boolean
     error?: string
+    status_updated?: boolean
   }>
 }
 

@@ -70,27 +70,36 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
     return e.json(401, { error: 'Unauthorized' })
   }
 
-  var externalId = (body.external_id || '').trim()
-  var email = (body.email || '').trim()
+  var externalId = (body.external_id || body.id || '').trim()
+  var email = (body.email || '').trim().toLowerCase()
   var name = (body.name || '').trim()
-  // var paymentStatus = (body.payment_status || '').trim()
-  var paymentStatus = 'paid' // Default to 'paid' for now, adjust as needed based on your external system's data
+  var rawPaymentStatus = (body.payment_status || '').trim().toLowerCase()
 
-  var rawCreateDate = (body.create_date || body.CreateDate || '').trim()
+  var rawCreateDate = (
+    body.create_date ||
+    body.CreateDate ||
+    body.createdate ||
+    body.created_at ||
+    body.createdAt ||
+    ''
+  ).trim()
+  var rawExpiryDate = (
+    body.expiry_date ||
+    body.ExpiryDate ||
+    body.expirydate ||
+    body.expires_at ||
+    body.expiresAt ||
+    ''
+  ).trim()
 
   if (!email && !externalId) {
     return e.badRequestError('Either email or external_id is required')
   }
 
-  var internalStatus = 'pendente'
-  if (paymentStatus === 'paid') {
-    internalStatus = 'em_dia'
-  } else if (paymentStatus === 'pending' || paymentStatus === 'overdue') {
-    internalStatus = 'pendente'
-  }
+  var internalStatus = rawPaymentStatus === 'paid' ? 'em_dia' : 'pendente'
 
   var formattedCreateDate = parseToIso(rawCreateDate)
-  var expiryDate = add30Days(rawCreateDate)
+  var expiryDate = rawExpiryDate ? parseToIso(rawExpiryDate) : add30Days(rawCreateDate)
 
   var existingRecord = null
 
@@ -121,6 +130,12 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
       existingRecord.set('external_create_date', formattedCreateDate)
     } else if (rawCreateDate) {
       existingRecord.set('external_create_date', rawCreateDate)
+    }
+    if (!expiryDate && !existingRecord.getString('expiry_date')) {
+      var existingCreated = existingRecord.getString('created')
+      if (existingCreated) {
+        expiryDate = add30Days(existingCreated)
+      }
     }
     if (expiryDate) {
       existingRecord.set('expiry_date', expiryDate)
@@ -160,9 +175,12 @@ routerAdd('POST', '/backend/v1/sync-users', (e) => {
   } else if (rawCreateDate) {
     newRecord.set('external_create_date', rawCreateDate)
   }
-  if (expiryDate) {
-    newRecord.set('expiry_date', expiryDate)
+  if (!expiryDate) {
+    var now = new Date()
+    var fallbackExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    expiryDate = formatIsoString(fallbackExpiry)
   }
+  newRecord.set('expiry_date', expiryDate)
   if (externalId) {
     newRecord.set('external_id', externalId)
   }
