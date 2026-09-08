@@ -19,32 +19,28 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Entrou no handleSubmit")
+    console.log('Entrou no handleSubmit')
     setIsLoading(true)
     if (isforgotPassword) {
       // Aqui você pode adicionar a lógica para redefinir a senha
       setIsLoading(false)
       const { error } = await forgotPassword(email, password)
-      if (error) 
-      {
+      if (error) {
         toast({
           title: 'Erro ao redefinir senha',
           description: 'Ocorreu um erro ao tentar redefinir a senha.',
           variant: 'destructive',
         })
-        return;
-      }
-      else
-      {
+        return
+      } else {
         toast({
           title: 'Senha redefinida',
           description: 'Sua senha foi redefinida com sucesso.',
           variant: 'default',
         })
         setIsForgotPassword(false)
-        return;
+        return
       }
-    
     }
     const { error } = await signIn(email, password)
     setIsLoading(false)
@@ -82,13 +78,10 @@ export default function Login() {
                 required
               />
             </div>
-           
+
             <div className="space-y-2">
-              <div className = "flex items-center justify-between">
-                <Label htmlFor="password">
-                  {isforgotPassword ? 'Nova Senha' : 'Senha'}
-                </Label>
-                
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">{isforgotPassword ? 'Nova Senha' : 'Senha'}</Label>
               </div>
               <Input
                 id="password"
@@ -97,18 +90,14 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              
             </div>
-            
-            
-          
+
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={isLoading}
             >
-              {isforgotPassword ? 'Redefinir Senha' :
-              isLoading ? 'Entrando...' : 'Entrar'}
+              {isforgotPassword ? 'Redefinir Senha' : isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
         </CardContent>

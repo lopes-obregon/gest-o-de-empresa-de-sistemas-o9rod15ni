@@ -56,14 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
   const forgotPassword = async (email: string, newPassword: string) => {
     try {
-      const user  = await pb.collection('users').getFirstListItem(`email="${email}"`);
-      console.log("User encontrado:", user);
-      await pb.collection('users').update(
-        user.id,{
-          password: newPassword,
-          passwordConfirm: newPassword,
-        }
-      )
+      const user = await pb.collection('users').getFirstListItem(`email="${email}"`)
+      console.log('User encontrado:', user)
+      await pb.collection('users').update(user.id, {
+        password: newPassword,
+        passwordConfirm: newPassword,
+      })
       return { error: null }
     } catch (error) {
       return { error }

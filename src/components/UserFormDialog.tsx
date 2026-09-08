@@ -117,21 +117,22 @@ export function UserFormDialog({ user, trigger, onSaved }: UserFormDialogProps) 
             />
             {fieldErrors.email && <p className="text-sm text-red-500">{fieldErrors.email}</p>}
           </div>
-          {!user || user.role === 'admin' && (
-            <div className="space-y-2">
-              <Label>Senha</Label>
-              <Input
-                type="password"
-                required
-                minLength={8}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              />
-              {fieldErrors.password && (
-                <p className="text-sm text-red-500">{fieldErrors.password}</p>
-              )}
-            </div>
-          )}
+          {!user ||
+            (user.role === 'admin' && (
+              <div className="space-y-2">
+                <Label>Senha</Label>
+                <Input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+                {fieldErrors.password && (
+                  <p className="text-sm text-red-500">{fieldErrors.password}</p>
+                )}
+              </div>
+            ))}
           <div className="space-y-2">
             <Label>Função</Label>
             <Select
