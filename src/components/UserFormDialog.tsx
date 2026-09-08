@@ -117,7 +117,7 @@ export function UserFormDialog({ user, trigger, onSaved }: UserFormDialogProps) 
             />
             {fieldErrors.email && <p className="text-sm text-red-500">{fieldErrors.email}</p>}
           </div>
-          {!user && (
+          {!user || user.role === 'admin' && (
             <div className="space-y-2">
               <Label>Senha</Label>
               <Input

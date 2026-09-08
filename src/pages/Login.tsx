@@ -97,20 +97,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              {!isforgotPassword ? (
-              <Button 
-              onClick={() => setIsForgotPassword(true)} variant="link" className="text-sm text-indigo-600 hover:text-indigo-700"
-              type="button"
-              >
-                Esqueci minha senha
-              </Button>
-              ) : (
-              <Button 
-              onClick={() => setIsForgotPassword(false)} variant="link" className="text-sm text-indigo-600 hover:text-indigo-700"
-              type="button">
-                Voltar ao login
-              </Button>
-              )}
+              
             </div>
             
             
