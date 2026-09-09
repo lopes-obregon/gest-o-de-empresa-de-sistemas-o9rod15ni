@@ -38,7 +38,7 @@ export const attemptLimiter = {
   registerFailedAttempt(): { isLocked: boolean; secondsLeft: number } {
     const state = readState()
     const attempts = state.attempts + 1
-    console.log("Tentativa:", attempts);
+    console.log('Tentativa:', attempts)
     if (attempts >= MAX_ATTEMPTS) {
       const lockedUntil = Date.now() + LOCK_DURATION_MS
       writeState({ attempts, lockedUntil })
