@@ -57,6 +57,7 @@ export function UserFormDialog({ user, trigger, onSaved }: UserFormDialogProps) 
 
     try {
       if (user) {
+        console.log("Updating user:", user.id, formData)
         await updateUser(user.id, { name: formData.name, role: formData.role })
         toast({ title: 'Usuário atualizado' })
       } else {
@@ -117,7 +118,7 @@ export function UserFormDialog({ user, trigger, onSaved }: UserFormDialogProps) 
             />
             {fieldErrors.email && <p className="text-sm text-red-500">{fieldErrors.email}</p>}
           </div>
-          {!user || user.role === 'admin' && (
+          {(!user || user.role === "admin")  && (
             <div className="space-y-2">
               <Label>Senha</Label>
               <Input

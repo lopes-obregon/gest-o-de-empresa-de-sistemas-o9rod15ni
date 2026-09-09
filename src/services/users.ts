@@ -2,6 +2,7 @@ import pb from '@/lib/pocketbase/client'
 import { RecordModel } from 'pocketbase'
 
 export interface User extends RecordModel {
+  id: string
   name: string
   email: string
   role: 'admin' | 'member'

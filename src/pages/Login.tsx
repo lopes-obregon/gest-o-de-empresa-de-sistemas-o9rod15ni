@@ -107,7 +107,7 @@ export default function Login() {
               className="w-full bg-indigo-600 hover:bg-indigo-700"
               disabled={isLoading}
             >
-              {isforgotPassword ? 'Redefinir Senha' :
+              {
               isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
