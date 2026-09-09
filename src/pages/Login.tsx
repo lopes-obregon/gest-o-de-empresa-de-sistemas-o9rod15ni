@@ -7,8 +7,11 @@ import { Label } from '@/components/ui/label'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-
+import { useAttemptLimiter } from '@/hooks/useAttemptLimiter'
+import { errors } from '@/services/errorService'
 export default function Login() {
+  const { isLocked, secondsLeft, registerAttempt } = useAttemptLimiter();
+  
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -19,43 +22,38 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Entrou no handleSubmit")
+    if(isLocked) return; //trava de segurança
     setIsLoading(true)
-    if (isforgotPassword) {
-      // Aqui você pode adicionar a lógica para redefinir a senha
-      setIsLoading(false)
-      const { error } = await forgotPassword(email, password)
-      if (error) 
+    try
+    {
+      console.log("Entrando");
+      const { error }=  await signIn(email, password)
+      //console.log(errorSigns);
+      if(error)
       {
-        toast({
-          title: 'Erro ao redefinir senha',
-          description: 'Ocorreu um erro ao tentar redefinir a senha.',
-          variant: 'destructive',
-        })
-        return;
+          let mensagem = errors(error)
+          registerAttempt(); //chamada realizada
+          toast({title: mensagem, variant: 'destructive'})
+
       }
       else
       {
-        toast({
-          title: 'Senha redefinida',
-          description: 'Sua senha foi redefinida com sucesso.',
-          variant: 'default',
-        })
-        setIsForgotPassword(false)
-        return;
+        navigate('/')
+
       }
     
+
     }
-    const { error } = await signIn(email, password)
-    setIsLoading(false)
-    if (error) {
-      toast({
-        title: 'Erro no login',
-        description: 'Verifique suas credenciais e tente novamente.',
-        variant: 'destructive',
-      })
-    } else {
-      navigate('/')
+    catch (err)
+    {
+      let mensagem = errors(err)
+      registerAttempt(); //chamada realizada
+      toast({title: mensagem, variant: 'destructive'})
+    }
+   
+    finally
+    {
+      setIsLoading(false);
     }
   }
 
@@ -86,7 +84,7 @@ export default function Login() {
             <div className="space-y-2">
               <div className = "flex items-center justify-between">
                 <Label htmlFor="password">
-                  {isforgotPassword ? 'Nova Senha' : 'Senha'}
+                  {'Senha'}
                 </Label>
                 
               </div>
@@ -105,10 +103,15 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-700"
-              disabled={isLoading}
+              disabled={isLoading || isLocked}
             >
               {
-              isLoading ? 'Entrando...' : 'Entrar'}
+                isLocked 
+                ?`Aguarde ${secondsLeft}s` 
+                :isLoading 
+                ? 'Entrando...' 
+                : 'Entrar'
+              }
             </Button>
           </form>
         </CardContent>
