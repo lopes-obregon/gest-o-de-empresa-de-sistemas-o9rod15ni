@@ -33,6 +33,7 @@ export default function UsersPage() {
 
   const loadData = async () => {
     const u = await getUsers()
+    console.log('Users loaded:', u);
     setUsers(u)
     setLoading(false)
   }
