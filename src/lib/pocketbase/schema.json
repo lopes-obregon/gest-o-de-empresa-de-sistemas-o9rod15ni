@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T19:38:47.906Z",
+  "generatedAt": "2026-09-23T21:09:03.666Z",
   "collections": [
     {
       "name": "users",
@@ -680,6 +680,82 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_budget_items_budget ON budget_items (budget)"]
+    },
+    {
+      "name": "company_settings",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cnpj",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "logo_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "website",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "payment_conditions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
     }
   ]
 }

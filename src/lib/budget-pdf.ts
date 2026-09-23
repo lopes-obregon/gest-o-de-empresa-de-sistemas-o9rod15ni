@@ -1,7 +1,29 @@
 import { BudgetWithItems } from '@/services/budgets'
 import { formatCurrency, formatDate } from '@/lib/format'
+import { CompanySettings, getCompanySettings } from '@/services/company-settings'
 
-export function generateBudgetPdf(budget: BudgetWithItems) {
+export async function generateBudgetPdf(
+  budget: BudgetWithItems,
+  providedCompany?: CompanySettings | null,
+) {
+  let company = providedCompany
+  if (!company) {
+    try {
+      company = await getCompanySettings()
+    } catch {
+      company = null
+    }
+  }
+
+  const companyName = company?.name?.trim() || 'VL SOLUÇÕES EM IA LTDA'
+  const companyEmail = company?.email?.trim() || 'contato@vlsolucoes.com.br'
+  const companyCnpj = company?.cnpj?.trim() || '00.000.000/0001-00'
+  const companyPhone = company?.phone?.trim() || ''
+  const companyAddress = company?.address?.trim() || ''
+  const companyWebsite = company?.website?.trim() || ''
+  const companyLogo = company?.logo_url?.trim() || ''
+  const defaultPaymentConditions = company?.payment_conditions?.trim() || ''
+
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
     alert('Por favor, permita pop-ups para gerar e imprimir o PDF do orçamento.')
@@ -48,6 +70,16 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
     bg: '#f1f5f9',
   }
 
+  // Prepara linha de dados de contato institucional
+  const companyContacts = [
+    companyEmail ? `E-mail: ${escapeHtml(companyEmail)}` : '',
+    companyCnpj ? `CNPJ: ${escapeHtml(companyCnpj)}` : '',
+    companyPhone ? `Tel: ${escapeHtml(companyPhone)}` : '',
+    companyWebsite ? `${escapeHtml(companyWebsite)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' &bull; ')
+
   const html = `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -82,24 +114,38 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
       border-bottom: 2px solid #4f46e5;
       padding-bottom: 20px;
       margin-bottom: 24px;
+      gap: 20px;
+    }
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .brand-logo {
+      max-height: 56px;
+      max-width: 140px;
+      object-fit: contain;
+      border-radius: 4px;
     }
     .brand-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       color: #4f46e5;
       letter-spacing: -0.5px;
+      text-transform: uppercase;
     }
     .brand-subtitle {
       font-size: 12px;
       color: #64748b;
-      margin-top: 4px;
+      margin-top: 3px;
     }
     .budget-meta {
       text-align: right;
+      white-space: nowrap;
     }
     .budget-meta h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: #0f172a;
     }
@@ -197,7 +243,7 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
       background: #f8fafc;
       padding: 14px 16px;
       border-radius: 4px;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
     .notes-title {
       font-size: 12px;
@@ -267,10 +313,19 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
 
   <div class="container">
     <div class="header">
-      <div>
-        <div class="brand-title">VL SOLUÇÕES EM IA LTDA</div>
-        <div class="brand-subtitle">Desenvolvimento de Sistemas, Automação & Inteligência Artificial</div>
-        <div class="brand-subtitle">contato@vlsolucoes.com.br &bull; CNPJ 00.000.000/0001-00</div>
+      <div class="brand-section">
+        ${
+          companyLogo
+            ? `<img src="${escapeHtml(
+                companyLogo,
+              )}" alt="Logo" class="brand-logo" onerror="this.style.display='none'" />`
+            : ''
+        }
+        <div>
+          <div class="brand-title">${escapeHtml(companyName)}</div>
+          ${companyAddress ? `<div class="brand-subtitle">${escapeHtml(companyAddress)}</div>` : ''}
+          ${companyContacts ? `<div class="brand-subtitle">${companyContacts}</div>` : ''}
+        </div>
       </div>
       <div class="budget-meta">
         <h1>PROPOSTA COMERCIAL</h1>
@@ -342,8 +397,19 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
       budget.notes
         ? `
       <div class="notes-box">
-        <div class="notes-title">Observações & Condições de Pagamento</div>
+        <div class="notes-title">Observações do Orçamento</div>
         <div class="notes-content">${escapeHtml(budget.notes)}</div>
+      </div>
+    `
+        : ''
+    }
+
+    ${
+      defaultPaymentConditions
+        ? `
+      <div class="notes-box" style="border-left-color: #059669; background: #f0fdf4;">
+        <div class="notes-title" style="color: #059669;">Condições Gerais de Pagamento</div>
+        <div class="notes-content" style="color: #1e293b;">${escapeHtml(defaultPaymentConditions)}</div>
       </div>
     `
         : ''
@@ -351,7 +417,7 @@ export function generateBudgetPdf(budget: BudgetWithItems) {
 
     <div class="footer">
       <p>Este documento é uma estimativa orçamentária válida para os serviços acima listados.</p>
-      <p>Gerado pelo sistema de gestão VL Soluções em IA &bull; ${new Date().toLocaleDateString(
+      <p>Gerado pelo sistema de gestão ${escapeHtml(companyName)} &bull; ${new Date().toLocaleDateString(
         'pt-BR',
       )} às ${new Date().toLocaleTimeString('pt-BR')}</p>
     </div>

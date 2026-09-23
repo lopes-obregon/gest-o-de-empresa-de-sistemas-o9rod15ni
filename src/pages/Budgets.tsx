@@ -400,7 +400,7 @@ export default function Budgets() {
   const handlePrintPdf = async (budget: Budget) => {
     try {
       const full = await getBudget(budget.id)
-      generateBudgetPdf(full)
+      await generateBudgetPdf(full)
     } catch {
       toast({ title: 'Erro ao gerar PDF do orçamento', variant: 'destructive' })
     }
@@ -1074,7 +1074,11 @@ export default function Budgets() {
                 Fechar
               </Button>
               <Button
-                onClick={() => generateBudgetPdf(viewBudgetModal)}
+                onClick={() => {
+                  generateBudgetPdf(viewBudgetModal).catch(() =>
+                    toast({ title: 'Erro ao gerar PDF', variant: 'destructive' }),
+                  )
+                }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 <Printer className="h-4 w-4 mr-2" />
