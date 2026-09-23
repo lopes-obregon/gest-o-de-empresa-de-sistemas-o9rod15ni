@@ -9,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: unknown }>
   signOut: () => void
   loading: boolean
+  forgotPassword: (email: string, newPassword: string) => Promise<{ error: unknown }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)

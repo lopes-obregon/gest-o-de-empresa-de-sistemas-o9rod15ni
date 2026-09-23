@@ -14,6 +14,9 @@ import Finance from './pages/Finance'
 import Settings from './pages/Settings'
 import UsersPage from './pages/Users'
 import Subscribers from './pages/Subscribers'
+import Services from './pages/Services'
+import Budgets from './pages/Budgets'
+import Assistant from './pages/Assistant'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -32,6 +35,9 @@ const App = () => (
               <Route path="/projetos/:id" element={<ProjectDetails />} />
               <Route path="/clientes" element={<Clients />} />
               <Route path="/financeiro" element={<Finance />} />
+              <Route path="/servicos" element={<Services />} />
+              <Route path="/orcamentos" element={<Budgets />} />
+              <Route path="/assistente" element={<Assistant />} />
               <Route path="/configuracoes" element={<Settings />} />
               <Route path="/configuracoes/usuarios" element={<UsersPage />} />
               <Route path="/assinantes" element={<Subscribers />} />

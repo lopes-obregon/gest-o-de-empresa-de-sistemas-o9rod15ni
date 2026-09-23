@@ -5,6 +5,9 @@ import {
   Users,
   UserCheck,
   BadgeDollarSign,
+  Layers,
+  FileSpreadsheet,
+  Bot,
   Settings,
   LogOut,
   Search,
@@ -33,9 +36,12 @@ export default function Layout() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Projetos', path: '/projetos', icon: Briefcase },
+    { name: 'Serviços', path: '/servicos', icon: Layers },
+    { name: 'Orçamentos', path: '/orcamentos', icon: FileSpreadsheet },
     { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Assinantes', path: '/assinantes', icon: UserCheck },
     { name: 'Financeiro', path: '/financeiro', icon: BadgeDollarSign },
+    { name: 'Assistente IA', path: '/assistente', icon: Bot },
     { name: 'Configurações', path: '/configuracoes', icon: Settings },
   ]
 
