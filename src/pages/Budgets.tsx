@@ -12,6 +12,7 @@ import {
 } from '@/services/budgets'
 import { getServices, createService, ServiceItem } from '@/services/services'
 import { getClients, Client } from '@/services/clients'
+import { getCompanySettings } from '@/services/company-settings'
 import { useRealtime } from '@/hooks/use-realtime'
 import { generateBudgetPdf } from '@/lib/budget-pdf'
 import { Button } from '@/components/ui/button'
@@ -108,6 +109,7 @@ export default function Budgets() {
   const [budgetDate, setBudgetDate] = useState<string>(() => new Date().toISOString().split('T')[0])
   const [validUntil, setValidUntil] = useState<string>('')
   const [notes, setNotes] = useState('')
+  const [paymentConditions, setPaymentConditions] = useState('')
   const [items, setItems] = useState<CreateBudgetItemInput[]>([])
 
   const loadData = async () => {
@@ -130,7 +132,7 @@ export default function Budgets() {
   useRealtime('budgets', loadData)
   useRealtime('services', loadData)
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
     setEditingBudget(null)
     setClientName('')
     setSelectedClientId('custom')
@@ -149,6 +151,15 @@ export default function Budgets() {
         total: 0,
       },
     ])
+
+    // Pré-preenche condições de pagamento com o padrão das configurações da empresa
+    try {
+      const company = await getCompanySettings()
+      setPaymentConditions(company.payment_conditions || '')
+    } catch {
+      setPaymentConditions('')
+    }
+
     setFormDialogOpen(true)
   }
 
@@ -164,6 +175,7 @@ export default function Budgets() {
       setBudgetDate(full.date ? full.date.split(' ')[0].split('T')[0] : '')
       setValidUntil(full.valid_until ? full.valid_until.split(' ')[0].split('T')[0] : '')
       setNotes(full.notes || '')
+      setPaymentConditions(full.payment_conditions || '')
       setItems(
         full.items.map((it) => ({
           service: it.service,
@@ -355,6 +367,7 @@ export default function Budgets() {
           date: budgetDate,
           valid_until: validUntil || undefined,
           notes: notes.trim(),
+          payment_conditions: paymentConditions.trim(),
           items: validItems,
         })
         toast({ title: 'Orçamento atualizado com sucesso' })
@@ -368,6 +381,7 @@ export default function Budgets() {
           date: budgetDate,
           valid_until: validUntil || undefined,
           notes: notes.trim(),
+          payment_conditions: paymentConditions.trim(),
           items: validItems,
         })
         toast({ title: 'Orçamento criado com sucesso' })
@@ -865,16 +879,34 @@ export default function Budgets() {
               </div>
             </div>
 
-            {/* Observações */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações / Condições Comerciais</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                placeholder="Ex: Condições de pagamento (50% entrada + 50% entrega), prazo estimado, garantias..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
+            {/* Condições de Pagamento e Observações */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="payment_conditions">Condições de Pagamento</Label>
+                <Textarea
+                  id="payment_conditions"
+                  rows={2}
+                  placeholder="Ex: 50% na assinatura + 50% na entrega ou a combinar..."
+                  value={paymentConditions}
+                  onChange={(e) => setPaymentConditions(e.target.value)}
+                />
+                <p className="text-xs text-slate-500">
+                  Defina as condições específicas deste orçamento (ex: parcelamento, entradas). Ao
+                  criar um novo orçamento, este campo vem pré-preenchido com o padrão configurado na
+                  empresa.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Observações do Orçamento</Label>
+                <Textarea
+                  id="notes"
+                  rows={3}
+                  placeholder="Ex: Prazo de execução, garantias, premissas técnicas ou observações adicionais..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
@@ -1060,6 +1092,15 @@ export default function Budgets() {
                   {formatCurrency(viewBudgetModal.total)}
                 </span>
               </div>
+
+              {viewBudgetModal.payment_conditions && (
+                <div className="p-3 bg-emerald-50 rounded border border-emerald-200 text-xs text-slate-700 space-y-1">
+                  <span className="font-semibold block text-emerald-800">
+                    Condições de Pagamento:
+                  </span>
+                  <p className="whitespace-pre-wrap">{viewBudgetModal.payment_conditions}</p>
+                </div>
+              )}
 
               {viewBudgetModal.notes && (
                 <div className="p-3 bg-slate-50 rounded border text-xs text-slate-600 space-y-1">

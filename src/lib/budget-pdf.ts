@@ -23,6 +23,9 @@ export async function generateBudgetPdf(
   const companyWebsite = company?.website?.trim() || ''
   const companyLogo = company?.logo_url?.trim() || ''
   const defaultPaymentConditions = company?.payment_conditions?.trim() || ''
+  // Usa as condições de pagamento do próprio orçamento; se vazio, cai para o padrão da empresa
+  const resolvedPaymentConditions =
+    (budget.payment_conditions && budget.payment_conditions.trim()) || defaultPaymentConditions
 
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
@@ -394,22 +397,22 @@ export async function generateBudgetPdf(
     </div>
 
     ${
-      budget.notes
+      budget.notes && budget.notes.trim()
         ? `
       <div class="notes-box">
         <div class="notes-title">Observações do Orçamento</div>
-        <div class="notes-content">${escapeHtml(budget.notes)}</div>
+        <div class="notes-content">${escapeHtml(budget.notes.trim())}</div>
       </div>
     `
         : ''
     }
 
     ${
-      defaultPaymentConditions
+      resolvedPaymentConditions
         ? `
       <div class="notes-box" style="border-left-color: #059669; background: #f0fdf4;">
-        <div class="notes-title" style="color: #059669;">Condições Gerais de Pagamento</div>
-        <div class="notes-content" style="color: #1e293b;">${escapeHtml(defaultPaymentConditions)}</div>
+        <div class="notes-title" style="color: #059669;">Condições de Pagamento</div>
+        <div class="notes-content" style="color: #1e293b;">${escapeHtml(resolvedPaymentConditions)}</div>
       </div>
     `
         : ''

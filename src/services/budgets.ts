@@ -15,6 +15,7 @@ export interface Budget extends RecordModel {
   valid_until?: string
   total: number
   notes?: string
+  payment_conditions?: string
   expand?: {
     client?: Client
   }
@@ -76,6 +77,7 @@ export interface CreateBudgetInput {
   date: string
   valid_until?: string
   notes?: string
+  payment_conditions?: string
   items: CreateBudgetItemInput[]
 }
 
@@ -91,6 +93,7 @@ export const createBudget = async (input: CreateBudgetInput): Promise<Budget> =>
     date: input.date,
     valid_until: input.valid_until || undefined,
     notes: input.notes,
+    payment_conditions: input.payment_conditions,
     total,
   })
 
@@ -118,6 +121,7 @@ export interface UpdateBudgetInput {
   date?: string
   valid_until?: string
   notes?: string
+  payment_conditions?: string
   items?: CreateBudgetItemInput[]
 }
 
@@ -155,6 +159,7 @@ export const updateBudget = async (budgetId: string, input: UpdateBudgetInput): 
     ...(input.date !== undefined && { date: input.date }),
     ...(input.valid_until !== undefined && { valid_until: input.valid_until || undefined }),
     ...(input.notes !== undefined && { notes: input.notes }),
+    ...(input.payment_conditions !== undefined && { payment_conditions: input.payment_conditions }),
     ...(total !== undefined && { total }),
   }
 
