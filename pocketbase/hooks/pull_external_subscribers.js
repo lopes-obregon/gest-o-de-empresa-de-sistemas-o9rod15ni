@@ -66,61 +66,150 @@ routerAdd(
       }
     }
 
-    let baseUrl = $secrets.get('API_BRIDE') || $secrets.get('API_DEV_BRIDE') || ''
-    if (!baseUrl || baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + 'users'
-    } else if (!baseUrl.endsWith('/')) {
-      baseUrl = baseUrl + '/users'
+    function normalizeUsersEndpoint(rawUrl) {
+      if (!rawUrl) return ''
+      var trimmed = String(rawUrl).trim()
+      if (!trimmed) return ''
+      if (trimmed.endsWith('/')) {
+        return trimmed + 'users'
+      }
+      return trimmed + '/users'
     }
 
-    let cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
-    let cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
-    const headers = {
-      'Content-Type': 'application/json',
-    }
+    const primaryBase = ($secrets.get('API_BRIDE') || '').trim()
+    const devBase = ($secrets.get('API_DEV_BRIDE') || '').trim()
 
-    const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
-    headers['Authorization'] = authToken ? 'Bearer ' + authToken : ''
-    headers['CF-Access-Client-Id'] = cfClientId
-    headers['CF-Access-Client-Secret'] = cfClientSecret
+    const primaryUrl = normalizeUsersEndpoint(primaryBase)
+    const devUrl = normalizeUsersEndpoint(devBase)
 
-    let res
-    try {
-      res = $http.send({
-        url: baseUrl,
-        method: 'GET',
-        headers: headers,
-        timeout: 30,
-      })
-    } catch (err) {
-      $app.logger().error('pull_external_subscribers: transport error', 'error', String(err))
-      return e.json(502, {
-        success: false,
-        created: 0,
-        updated: 0,
-        errors: 0,
-        total: 0,
-        message: 'Falha ao conectar com o sistema externo.',
-      })
-    }
-
-    if (res.statusCode !== 200) {
+    if (!primaryUrl && !devUrl) {
       $app
         .logger()
         .error(
-          'pull_external_subscribers: non-200 response',
-          'status',
-          res.statusCode,
-          'body',
-          String(res.body).substring(0, 500),
+          'pull_external_subscribers: URL da API externa não configurada (API_BRIDE e API_DEV_BRIDE vazias)',
         )
-      return e.json(res.statusCode, {
+      return e.json(500, {
         success: false,
         created: 0,
         updated: 0,
         errors: 0,
         total: 0,
-        message: 'O sistema externo retornou erro ' + res.statusCode + '.',
+        message: 'URL da API externa não configurada.',
+      })
+    }
+
+    const cfClientId = $secrets.get('CF_ACCESS_CLIENT_ID') || ''
+    const cfClientSecret = $secrets.get('CF_ACCESS_CLIENT_SECRET') || ''
+    const authToken = $secrets.get('EXTERNAL_SYSTEM_AUTH_TOKEN') || ''
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: authToken ? 'Bearer ' + authToken : '',
+      'CF-Access-Client-Id': cfClientId,
+      'CF-Access-Client-Secret': cfClientSecret,
+    }
+
+    // Lista de endpoints a tentar (preferida: API_BRIDE, fallback: API_DEV_BRIDE)
+    const candidates = []
+    if (primaryUrl) {
+      candidates.push({ name: 'API_BRIDE', url: primaryUrl })
+    }
+    if (devUrl && devUrl !== primaryUrl) {
+      candidates.push({ name: 'API_DEV_BRIDE', url: devUrl })
+    }
+
+    let res = null
+    let lastStatusCode = 502
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]
+      let callResponse = null
+      let callError = null
+
+      try {
+        callResponse = $http.send({
+          url: candidate.url,
+          method: 'GET',
+          headers: headers,
+          timeout: 30,
+        })
+      } catch (err) {
+        callError = err
+      }
+
+      if (callError) {
+        $app
+          .logger()
+          .error(
+            'pull_external_subscribers: falha de transporte na URL ' + candidate.name,
+            'source',
+            candidate.name,
+            'error',
+            String(callError),
+          )
+        lastStatusCode = 502
+        // Tenta a próxima candidata se houver
+        continue
+      }
+
+      const statusCode = callResponse.statusCode
+
+      // Sucesso
+      if (statusCode === 200) {
+        res = callResponse
+        break
+      }
+
+      // Erro 4xx do cliente da API externa: interrompe imediatamente sem tentar fallback
+      if (statusCode >= 400 && statusCode < 500) {
+        $app
+          .logger()
+          .error(
+            'pull_external_subscribers: erro 4xx na URL ' + candidate.name,
+            'source',
+            candidate.name,
+            'status',
+            statusCode,
+            'body',
+            String(callResponse.body).substring(0, 500),
+          )
+        return e.json(statusCode, {
+          success: false,
+          created: 0,
+          updated: 0,
+          errors: 0,
+          total: 0,
+          message: 'O sistema externo retornou erro ' + statusCode + '.',
+        })
+      }
+
+      // Erro 5xx (servidor): logar e tentar fallback se houver
+      $app
+        .logger()
+        .error(
+          'pull_external_subscribers: erro 5xx na URL ' + candidate.name,
+          'source',
+          candidate.name,
+          'status',
+          statusCode,
+          'body',
+          String(callResponse.body).substring(0, 500),
+        )
+      lastStatusCode = statusCode
+    }
+
+    if (!res) {
+      const errorStatus = lastStatusCode >= 500 ? lastStatusCode : 502
+      return e.json(errorStatus, {
+        success: false,
+        created: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
+        message:
+          'O sistema externo está indisponível (erro ' +
+          errorStatus +
+          '). Verifique se o servidor da API externa está no ar.',
       })
     }
 

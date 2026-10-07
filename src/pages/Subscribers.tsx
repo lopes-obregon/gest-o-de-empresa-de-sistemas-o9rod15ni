@@ -86,22 +86,33 @@ export default function Subscribers() {
       const errorObj = err as
         | {
             status?: number
-            response?: { status?: number; data?: { error?: string } }
+            response?: { status?: number; data?: { error?: string; message?: string } }
+            data?: { message?: string; error?: string }
             message?: string
           }
         | undefined
       const status = errorObj?.status || errorObj?.response?.status || 0
-      const serverMessage = errorObj?.response?.data?.error || errorObj?.message
+      const serverMessage =
+        errorObj?.response?.data?.message ||
+        errorObj?.response?.data?.error ||
+        errorObj?.data?.message ||
+        errorObj?.data?.error ||
+        errorObj?.message
       let description = 'Não foi possível sincronizar com o sistema externo.'
 
-      if (serverMessage) {
+      if (
+        serverMessage &&
+        !serverMessage.startsWith('ClientResponseError 502') &&
+        !serverMessage.startsWith('Failed to load resource')
+      ) {
         description = serverMessage
       } else if (status === 401) {
         description = 'Token de autenticação inválido ou não configurado no sistema externo.'
       } else if (status === 404) {
         description = 'Endpoint do sistema externo não encontrado.'
       } else if (status === 502) {
-        description = 'Falha ao conectar com o sistema externo. Tente novamente.'
+        description =
+          'O sistema externo está indisponível (erro 502). Verifique se o servidor da API externa está no ar.'
       }
 
       toast({
