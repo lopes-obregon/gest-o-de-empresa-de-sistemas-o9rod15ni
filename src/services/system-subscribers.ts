@@ -12,6 +12,8 @@ export interface SystemSubscriber extends RecordModel {
   last_notification_status?: string
   last_notification_date?: string
   system?: string
+  plan_days?: number
+  sync_error?: string
 }
 
 export const getSubscribers = () =>

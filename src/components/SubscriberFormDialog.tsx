@@ -46,6 +46,7 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
     external_id: subscriber?.external_id || '',
     expiry_date: formatDateForInput(subscriber?.expiry_date),
     external_create_date: formatDateForInput(subscriber?.external_create_date),
+    plan_days: subscriber?.plan_days ?? 30,
   })
 
   const resetForm = useCallback(() => {
@@ -57,6 +58,7 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
       external_id: subscriber?.external_id || '',
       expiry_date: formatDateForInput(subscriber?.expiry_date),
       external_create_date: formatDateForInput(subscriber?.external_create_date),
+      plan_days: subscriber?.plan_days ?? 30,
     })
     setFieldErrors({})
   }, [subscriber])
@@ -74,6 +76,7 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
         access_status: formData.access_status as 'active' | 'inactive',
         external_id: formData.external_id,
         expiry_date: formData.expiry_date ? `${formData.expiry_date} 00:00:00.000Z` : '',
+        plan_days: formData.plan_days,
       }
 
       if (subscriber) {
@@ -184,25 +187,41 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label>Duração do plano (dias)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={3650}
+                value={formData.plan_days}
+                onChange={(e) => setFormData({ ...formData, plan_days: Number(e.target.value) })}
+              />
+              <p className="text-xs text-slate-500">
+                Usado para recalcular o vencimento ao marcar como pago.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Data de Vencimento</Label>
               <Input
                 type="date"
                 value={formData.expiry_date}
                 onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
               />
+              <p className="text-xs text-slate-500">
+                Manual prevalece; renovação automática só ao marcar como pago.
+              </p>
               {fieldErrors.expiry_date && (
                 <p className="text-sm text-red-500">{fieldErrors.expiry_date}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Data de Cadastro Externo</Label>
-              <Input
-                type="date"
-                value={formData.external_create_date}
-                disabled
-                className="bg-slate-50 text-slate-500 cursor-not-allowed"
-              />
-            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Data de Cadastro Externo</Label>
+            <Input
+              type="date"
+              value={formData.external_create_date}
+              disabled
+              className="bg-slate-50 text-slate-500 cursor-not-allowed"
+            />
           </div>
 
           <Button

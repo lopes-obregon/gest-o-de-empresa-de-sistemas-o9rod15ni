@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T17:32:18.970Z",
+  "generatedAt": "2026-11-18T13:51:30.048Z",
   "collections": [
     {
       "name": "users",
@@ -449,6 +449,33 @@
         {
           "name": "last_notification_date",
           "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plan_days",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_notification_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "plan_days",
+          "type": "number",
+          "required": false,
+          "system": false,
+          "numberMin": 1,
+          "numberMax": 3650,
+          "numberOnlyInt": true
+        },
+        {
+          "name": "sync_error",
+          "type": "text",
           "required": false,
           "system": false
         }

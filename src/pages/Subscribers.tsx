@@ -36,7 +36,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Trash2, Search, AlertTriangle, Users2, RefreshCw, BellRing } from 'lucide-react'
+import {
+  Trash2,
+  Search,
+  AlertTriangle,
+  Users2,
+  RefreshCw,
+  BellRing,
+  CheckCircle2,
+} from 'lucide-react'
 import { SubscriberFormDialog } from '@/components/SubscriberFormDialog'
 import { useToast } from '@/hooks/use-toast'
 import { formatDate } from '@/lib/format'
@@ -50,6 +58,7 @@ export default function Subscribers() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [syncing, setSyncing] = useState(false)
   const [checkingExpiry, setCheckingExpiry] = useState(false)
+  const [markingPayment, setMarkingPayment] = useState<string | null>(null)
 
   const loadData = async () => {
     const s = await getSubscribers()
@@ -174,14 +183,73 @@ export default function Subscribers() {
     return <Navigate to="/" replace />
   }
 
-  const togglePaymentStatus = async (s: SystemSubscriber) => {
-    const newStatus = s.payment_status === 'em_dia' ? 'pendente' : 'em_dia'
+  const buildErrorToast = (err: unknown, fallback: string) => {
+    const errorObj = err as
+      | {
+          status?: number
+          response?: { status?: number; data?: { message?: string; error?: string } }
+          data?: { message?: string; error?: string }
+          message?: string
+        }
+      | undefined
+    const status = errorObj?.status || errorObj?.response?.status || 0
+    const serverMessage =
+      errorObj?.response?.data?.message ||
+      errorObj?.response?.data?.error ||
+      errorObj?.data?.message ||
+      errorObj?.data?.error ||
+      errorObj?.message
+    let description = fallback
+    if (serverMessage && !serverMessage.startsWith('ClientResponseError 502')) {
+      description = serverMessage
+    } else if (status === 502) {
+      description = 'O sistema externo está indisponível (erro 502).'
+    }
+    return { title: 'Erro ao atualizar assinante', description, variant: 'destructive' as const }
+  }
+
+  // Marca como pago e RENOVA o prazo: nova expiração = hoje + plan_days.
+  // Calculada a partir da data da marcação (não do cadastro).
+  const markAsPaid = async (s: SystemSubscriber) => {
+    setMarkingPayment(s.id)
     try {
-      await updateSubscriber(s.id, { payment_status: newStatus })
-      toast({ title: `Status alterado para ${newStatus === 'em_dia' ? 'Em Dia' : 'Pendente'}` })
+      const planDays = s.plan_days && s.plan_days > 0 ? s.plan_days : 30
+      const today = new Date()
+      const newExpiry = new Date(
+        Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) +
+          planDays * 24 * 60 * 60 * 1000,
+      )
+      const expiryIso = newExpiry.toISOString().replace('T', ' ').substring(0, 19) + 'Z'
+      await updateSubscriber(s.id, {
+        payment_status: 'em_dia',
+        expiry_date: expiryIso,
+        sync_error: '',
+      })
+      toast({
+        title: 'Pagamento registrado!',
+        description: `Novo vencimento: ${formatDate(expiryIso)} (${planDays} dias).`,
+      })
       loadData()
-    } catch {
-      toast({ title: 'Erro ao atualizar status', variant: 'destructive' })
+    } catch (err) {
+      toast(buildErrorToast(err, 'Não foi possível registrar o pagamento.'))
+    } finally {
+      setMarkingPayment(null)
+    }
+  }
+
+  // Toggle do badge: para 'em_dia' → 'pendente' apenas marca como pendente;
+  // para 'pendente' → 'em_dia' significa registrar o pagamento e RENOVAR o prazo.
+  const togglePaymentStatus = async (s: SystemSubscriber) => {
+    if (s.payment_status === 'pendente') {
+      await markAsPaid(s)
+      return
+    }
+    try {
+      await updateSubscriber(s.id, { payment_status: 'pendente' })
+      toast({ title: 'Status alterado para Pendente' })
+      loadData()
+    } catch (err) {
+      toast(buildErrorToast(err, 'Erro ao atualizar status.'))
     }
   }
 
@@ -327,21 +395,29 @@ export default function Subscribers() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <button
-                            onClick={() => togglePaymentStatus(s)}
-                            className="inline-flex items-center"
-                          >
-                            <Badge
-                              variant={s.payment_status === 'pendente' ? 'destructive' : 'default'}
-                              className={
-                                s.payment_status === 'pendente'
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer transition-colors'
-                                  : 'bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors'
-                              }
+                          {s.payment_status === 'pendente' ? (
+                            <Button
+                              size="sm"
+                              onClick={() => markAsPaid(s)}
+                              disabled={markingPayment === s.id}
+                              className="bg-green-600 hover:bg-green-700 text-white h-7 px-3 text-xs"
                             >
-                              {s.payment_status === 'pendente' ? 'Pendente' : 'Em Dia'}
-                            </Badge>
-                          </button>
+                              <CheckCircle2
+                                className={`mr-1 h-3.5 w-3.5 ${markingPayment === s.id ? 'animate-pulse' : ''}`}
+                              />
+                              {markingPayment === s.id ? 'Registrando...' : 'Marcar como Pago'}
+                            </Button>
+                          ) : (
+                            <button
+                              onClick={() => togglePaymentStatus(s)}
+                              className="inline-flex items-center"
+                              title="Clique para marcar como Pendente"
+                            >
+                              <Badge className="bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors">
+                                Em Dia
+                              </Badge>
+                            </button>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge
