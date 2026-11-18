@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T13:51:30.048Z",
+  "generatedAt": "2026-11-18T20:57:40.618Z",
   "collections": [
     {
       "name": "users",
@@ -459,21 +459,6 @@
           "system": false
         },
         {
-          "name": "last_notification_date",
-          "type": "date",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "plan_days",
-          "type": "number",
-          "required": false,
-          "system": false,
-          "numberMin": 1,
-          "numberMax": 3650,
-          "numberOnlyInt": true
-        },
-        {
           "name": "sync_error",
           "type": "text",
           "required": false,
@@ -789,6 +774,54 @@
         }
       ],
       "indexes": []
+    },
+    {
+      "name": "subscriber_systems",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_subscriber_systems_name ON subscriber_systems (name COLLATE NOCASE)"
+      ]
     }
   ]
 }

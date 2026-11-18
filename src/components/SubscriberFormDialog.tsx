@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { Plus, Pencil } from 'lucide-react'
 import { createSubscriber, updateSubscriber, SystemSubscriber } from '@/services/system-subscribers'
+import { SubscriberSystem } from '@/services/subscriber-systems'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
 
@@ -25,9 +26,17 @@ interface SubscriberFormDialogProps {
   subscriber?: SystemSubscriber | null
   trigger?: React.ReactNode
   onSaved: () => void
+  systems: SubscriberSystem[]
+  defaultSystemId?: string
 }
 
-export function SubscriberFormDialog({ subscriber, trigger, onSaved }: SubscriberFormDialogProps) {
+export function SubscriberFormDialog({
+  subscriber,
+  trigger,
+  onSaved,
+  systems,
+  defaultSystemId,
+}: SubscriberFormDialogProps) {
   const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -47,6 +56,7 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
     expiry_date: formatDateForInput(subscriber?.expiry_date),
     external_create_date: formatDateForInput(subscriber?.external_create_date),
     plan_days: subscriber?.plan_days ?? 30,
+    system: subscriber?.system || defaultSystemId || '',
   })
 
   const resetForm = useCallback(() => {
@@ -59,9 +69,10 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
       expiry_date: formatDateForInput(subscriber?.expiry_date),
       external_create_date: formatDateForInput(subscriber?.external_create_date),
       plan_days: subscriber?.plan_days ?? 30,
+      system: subscriber?.system || defaultSystemId || '',
     })
     setFieldErrors({})
-  }, [subscriber])
+  }, [subscriber, defaultSystemId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,6 +80,15 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
     setFieldErrors({})
 
     try {
+      if (!formData.system) {
+        toast({
+          title: 'Selecione o sistema',
+          description: 'Escolha a qual sistema este assinante pertence.',
+          variant: 'destructive',
+        })
+        setIsSubmitting(false)
+        return
+      }
       const payload: Partial<SystemSubscriber> = {
         name: formData.name,
         email: formData.email,
@@ -77,6 +97,7 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
         external_id: formData.external_id,
         expiry_date: formData.expiry_date ? `${formData.expiry_date} 00:00:00.000Z` : '',
         plan_days: formData.plan_days,
+        system: formData.system,
       }
 
       if (subscriber) {
@@ -175,6 +196,29 @@ export function SubscriberFormDialog({ subscriber, trigger, onSaved }: Subscribe
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Sistema</Label>
+            <Select
+              value={formData.system}
+              onValueChange={(v: string) => setFormData({ ...formData, system: v })}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o sistema" />
+              </SelectTrigger>
+              <SelectContent>
+                {systems.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              Sistema ao qual este assinante está vinculado (define a aba em que ele aparece).
+            </p>
+            {fieldErrors.system && <p className="text-sm text-red-500">{fieldErrors.system}</p>}
           </div>
           <div className="space-y-2">
             <Label>ID Externo (opcional)</Label>

@@ -240,6 +240,24 @@ routerAdd(
       })
     }
 
+    // Sistema padrão para assinantes sem sistema definido (ex: sincronizados
+    // da API externa): "Gestor Caminhoneiro". A API externa não conhece o
+    // conceito de sistema — o campo é preenchido apenas aqui dentro.
+    let defaultSystemId = ''
+    try {
+      const defSys = $app.findFirstRecordByFilter(
+        'subscriber_systems',
+        "name = 'Gestor Caminhoneiro'",
+      )
+      defaultSystemId = defSys.id
+    } catch (_) {
+      $app
+        .logger()
+        .warn(
+          'pull_external_subscribers: sistema padrão "Gestor Caminhoneiro" não encontrado em subscriber_systems',
+        )
+    }
+
     let created = 0
     let updated = 0
     let errors = 0
@@ -292,6 +310,10 @@ routerAdd(
       } catch (_) {}
 
       if (existing) {
+        // Backfill de segurança: assinante sem sistema cai no sistema padrão.
+        if (defaultSystemId && (existing.getString('system') || '') === '') {
+          existing.set('system', defaultSystemId)
+        }
         const currentStatus = existing.getString('payment_status')
         const currentName = existing.getString('name')
         const currentExternalId = existing.getString('external_id')
@@ -364,6 +386,9 @@ routerAdd(
           record.set('email', email)
           record.set('payment_status', paymentStatus)
           record.set('access_status', 'active')
+          if (defaultSystemId) {
+            record.set('system', defaultSystemId)
+          }
           if (externalId) {
             record.set('external_id', externalId)
           }

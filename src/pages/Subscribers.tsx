@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
 import {
   getSubscribers,
@@ -8,12 +8,14 @@ import {
   checkSubscriberExpiry,
   SystemSubscriber,
 } from '@/services/system-subscribers'
+import { getSystems, SubscriberSystem } from '@/services/subscriber-systems'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -22,13 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -44,43 +39,108 @@ import {
   RefreshCw,
   BellRing,
   CheckCircle2,
+  Pencil,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 import { SubscriberFormDialog } from '@/components/SubscriberFormDialog'
+import { SystemTabDialog } from '@/components/SystemTabDialog'
 import { useToast } from '@/hooks/use-toast'
 import { formatDate } from '@/lib/format'
+
+type StatusFilter = 'all' | 'em_dia' | 'pendente' | 'vencido'
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'em_dia', label: 'Em Dia' },
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'vencido', label: 'Vencido' },
+]
+
+// Mesma lógica de dias restantes usada nos badges da tabela.
+const getDaysRemaining = (expiryDateStr?: string): number | null => {
+  if (!expiryDateStr) return null
+  try {
+    const expiry = new Date(expiryDateStr)
+    if (isNaN(expiry.getTime())) return null
+    const now = new Date()
+    const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+    const expiryUtc = new Date(Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()))
+    const diffMs = expiryUtc.getTime() - todayUtc.getTime()
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  } catch {
+    return null
+  }
+}
 
 export default function Subscribers() {
   const { user: currentUser } = useAuth()
   const { toast } = useToast()
   const [subscribers, setSubscribers] = useState<SystemSubscriber[]>([])
+  const [systems, setSystems] = useState<SubscriberSystem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [activeSystemId, setActiveSystemId] = useState<string>('')
   const [syncing, setSyncing] = useState(false)
   const [checkingExpiry, setCheckingExpiry] = useState(false)
   const [markingPayment, setMarkingPayment] = useState<string | null>(null)
 
-  const loadData = async () => {
-    const s = await getSubscribers()
+  const loadData = useCallback(async () => {
+    const [s, sys] = await Promise.all([getSubscribers(), getSystems()])
     setSubscribers(s)
+    setSystems(sys)
     setLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
   useRealtime('system_subscribers', loadData)
 
+  // Quando os sistemas carregam (ou mudam), garante que a aba ativa é válida.
+  useEffect(() => {
+    if (systems.length === 0) return
+    if (!systems.some((s) => s.id === activeSystemId)) {
+      setActiveSystemId(systems[0].id)
+    }
+  }, [systems, activeSystemId])
+
+  const activeSystem = systems.find((s) => s.id === activeSystemId) || systems[0]
+
+  // Assinantes do sistema ativo. Assinantes sem sistema (ex: criados por
+  // sincronização externa antes da feature) caem na primeira aba (padrão).
+  const systemSubscribers = useMemo(() => {
+    if (!activeSystem) return []
+    return subscribers.filter((s) => (s.system || systems[0]?.id || '') === activeSystem.id)
+  }, [subscribers, systems, activeSystem])
+
+  const counts = useMemo(() => {
+    const c = { total: systemSubscribers.length, em_dia: 0, pendente: 0, vencido: 0 }
+    for (const s of systemSubscribers) {
+      const days = getDaysRemaining(s.expiry_date)
+      if (s.payment_status === 'em_dia' && days !== null && days <= 0) c.vencido++
+      else if (s.payment_status === 'em_dia') c.em_dia++
+      else c.pendente++
+    }
+    return c
+  }, [systemSubscribers])
+
   const filtered = useMemo(() => {
-    return subscribers.filter((s) => {
+    return systemSubscribers.filter((s) => {
       const matchesSearch =
         !search ||
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.email.toLowerCase().includes(search.toLowerCase())
-      const matchesStatus = statusFilter === 'all' || s.payment_status === statusFilter
+      const days = getDaysRemaining(s.expiry_date)
+      const isExpired = s.payment_status === 'em_dia' && days !== null && days <= 0
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'vencido' && isExpired) ||
+        (statusFilter !== 'vencido' && s.payment_status === statusFilter)
       return matchesSearch && matchesStatus
     })
-  }, [subscribers, search, statusFilter])
+  }, [systemSubscribers, search, statusFilter])
 
   const handleSync = async () => {
     setSyncing(true)
@@ -108,7 +168,6 @@ export default function Subscribers() {
         errorObj?.data?.error ||
         errorObj?.message
       let description = 'Não foi possível sincronizar com o sistema externo.'
-
       if (
         serverMessage &&
         !serverMessage.startsWith('ClientResponseError 502') &&
@@ -123,12 +182,7 @@ export default function Subscribers() {
         description =
           'O sistema externo está indisponível (erro 502). Verifique se o servidor da API externa está no ar.'
       }
-
-      toast({
-        title: 'Falha na sincronização',
-        description,
-        variant: 'destructive',
-      })
+      toast({ title: 'Falha na sincronização', description, variant: 'destructive' })
     } finally {
       setSyncing(false)
     }
@@ -162,27 +216,6 @@ export default function Subscribers() {
     }
   }
 
-  const getDaysRemaining = (expiryDateStr?: string): number | null => {
-    if (!expiryDateStr) return null
-    try {
-      const expiry = new Date(expiryDateStr)
-      if (isNaN(expiry.getTime())) return null
-      const now = new Date()
-      const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-      const expiryUtc = new Date(
-        Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()),
-      )
-      const diffMs = expiryUtc.getTime() - todayUtc.getTime()
-      return Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    } catch {
-      return null
-    }
-  }
-
-  if (currentUser?.role !== 'admin') {
-    return <Navigate to="/" replace />
-  }
-
   const buildErrorToast = (err: unknown, fallback: string) => {
     const errorObj = err as
       | {
@@ -209,7 +242,6 @@ export default function Subscribers() {
   }
 
   // Marca como pago e RENOVA o prazo: nova expiração = hoje + plan_days.
-  // Calculada a partir da data da marcação (não do cadastro).
   const markAsPaid = async (s: SystemSubscriber) => {
     setMarkingPayment(s.id)
     try {
@@ -238,7 +270,7 @@ export default function Subscribers() {
   }
 
   // Toggle do badge: para 'em_dia' → 'pendente' apenas marca como pendente;
-  // para 'pendente' → 'em_dia' significa registrar o pagamento e RENOVAR o prazo.
+  // para 'pendente' → 'em_dia' registra o pagamento e renova o prazo.
   const togglePaymentStatus = async (s: SystemSubscriber) => {
     if (s.payment_status === 'pendente') {
       await markAsPaid(s)
@@ -263,13 +295,17 @@ export default function Subscribers() {
     }
   }
 
+  if (currentUser?.role !== 'admin') {
+    return <Navigate to="/" replace />
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assinantes do Sistema</h2>
           <p className="text-slate-500">
-            Clientes do sistema integrado e seus status de pagamento.
+            Organizados por sistema vendido — crie uma aba para cada novo sistema.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -291,7 +327,11 @@ export default function Subscribers() {
             <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Sincronizando...' : 'Sincronizar Assinantes'}
           </Button>
-          <SubscriberFormDialog onSaved={loadData} />
+          <SubscriberFormDialog
+            onSaved={loadData}
+            systems={systems}
+            defaultSystemId={activeSystem?.id}
+          />
         </div>
       </div>
 
@@ -303,173 +343,295 @@ export default function Subscribers() {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Buscar por nome ou email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-12 bg-slate-200 rounded animate-pulse" />
+          ))}
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="em_dia">Em Dia</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users2 className="w-5 h-5 text-indigo-600" />
-            Assinantes ({filtered.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-12 bg-slate-200 rounded animate-pulse" />
+      ) : systems.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-slate-500">
+            Nenhum sistema cadastrado. Clique em <strong>Nova Aba</strong> para criar o primeiro.
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs value={activeSystemId} onValueChange={setActiveSystemId}>
+          <div className="flex items-center gap-2">
+            <TabsList className="flex-wrap h-auto">
+              {systems.map((sys) => (
+                <TabsTrigger key={sys.id} value={sys.id} className="gap-1.5">
+                  {sys.name}
+                  {!sys.active && <span className="text-xs text-slate-400">(inativo)</span>}
+                </TabsTrigger>
               ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <p className="text-center text-slate-500 py-8">Nenhum assinante encontrado.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>ID Externo</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Dias Restantes</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead>Acesso</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((s) => {
-                    const daysRemaining = getDaysRemaining(s.expiry_date)
-                    const isExpired = daysRemaining !== null && daysRemaining <= 0
-                    const isRowHighlighted = s.payment_status === 'pendente' || isExpired
+            </TabsList>
+            <SystemTabDialog
+              onSaved={loadData}
+              onDeleted={() => {
+                setActiveSystemId('')
+                loadData()
+              }}
+            />
+          </div>
 
-                    return (
-                      <TableRow key={s.id} className={isRowHighlighted ? 'bg-red-50/50' : ''}>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell className="text-slate-600">{s.email}</TableCell>
-                        <TableCell className="text-slate-500 text-sm">
-                          {s.external_id || '—'}
-                        </TableCell>
-                        <TableCell className="text-slate-600 text-sm">
-                          {s.expiry_date ? formatDate(s.expiry_date) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {daysRemaining === null ? (
-                            <Badge
-                              variant="outline"
-                              className="bg-slate-50 text-slate-500 border-slate-200"
-                            >
-                              —
-                            </Badge>
-                          ) : daysRemaining > 7 ? (
-                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-medium">
-                              {daysRemaining} dias
-                            </Badge>
-                          ) : daysRemaining > 0 ? (
-                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none font-medium">
-                              {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none font-medium">
-                              Vencido ({Math.abs(daysRemaining)}d)
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {s.payment_status === 'pendente' ? (
-                            <Button
-                              size="sm"
-                              onClick={() => markAsPaid(s)}
-                              disabled={markingPayment === s.id}
-                              className="bg-green-600 hover:bg-green-700 text-white h-7 px-3 text-xs"
-                            >
-                              <CheckCircle2
-                                className={`mr-1 h-3.5 w-3.5 ${markingPayment === s.id ? 'animate-pulse' : ''}`}
-                              />
-                              {markingPayment === s.id ? 'Registrando...' : 'Marcar como Pago'}
-                            </Button>
-                          ) : (
-                            <button
-                              onClick={() => togglePaymentStatus(s)}
-                              className="inline-flex items-center"
-                              title="Clique para marcar como Pendente"
-                            >
-                              <Badge className="bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors">
-                                Em Dia
-                              </Badge>
-                            </button>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              s.access_status === 'active'
-                                ? 'bg-indigo-100 text-indigo-700'
-                                : 'bg-slate-200 text-slate-500'
-                            }
-                          >
-                            {s.access_status === 'active' ? 'Ativo' : 'Inativo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <SubscriberFormDialog subscriber={s} onSaved={loadData} />
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-sm">
-                                <DialogHeader>
-                                  <DialogTitle>Confirmar Exclusão</DialogTitle>
-                                </DialogHeader>
-                                <p className="text-sm text-slate-600 py-2">
-                                  Deseja realmente excluir o assinante <strong>{s.name}</strong>?
-                                </p>
-                                <div className="flex justify-end gap-2 pt-2">
-                                  <Button variant="outline">Cancelar</Button>
-                                  <Button variant="destructive" onClick={() => handleDelete(s.id)}>
-                                    Excluir
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+          {systems.map((sys) => {
+            const sysSubs = subscribers.filter((s) => (s.system || systems[0]?.id || '') === sys.id)
+            const sysCounts = { total: sysSubs.length, em_dia: 0, pendente: 0, vencido: 0 }
+            for (const s of sysSubs) {
+              const days = getDaysRemaining(s.expiry_date)
+              if (s.payment_status === 'em_dia' && days !== null && days <= 0) sysCounts.vencido++
+              else if (s.payment_status === 'em_dia') sysCounts.em_dia++
+              else sysCounts.pendente++
+            }
+            const isActive = sys.id === activeSystem?.id
+
+            return (
+              <TabsContent key={sys.id} value={sys.id} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">{sys.name}</h3>
+                    {sys.description && <p className="text-sm text-slate-500">{sys.description}</p>}
+                  </div>
+                  <SystemTabDialog system={sys} onSaved={loadData} onDeleted={loadData} />
+                </div>
+
+                {isActive && (
+                  <>
+                    {/* Contadores resumo do sistema */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <Card>
+                        <CardContent className="pt-6 pb-4 flex items-center gap-3">
+                          <Users2 className="h-5 w-5 text-indigo-600" />
+                          <div>
+                            <p className="text-2xl font-bold">{sysCounts.total}</p>
+                            <p className="text-xs text-slate-500">Total</p>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6 pb-4 flex items-center gap-3">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                          <div>
+                            <p className="text-2xl font-bold text-emerald-700">
+                              {sysCounts.em_dia}
+                            </p>
+                            <p className="text-xs text-slate-500">Em Dia</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6 pb-4 flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-amber-600" />
+                          <div>
+                            <p className="text-2xl font-bold text-amber-700">
+                              {sysCounts.pendente}
+                            </p>
+                            <p className="text-xs text-slate-500">Pendente</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6 pb-4 flex items-center gap-3">
+                          <XCircle className="h-5 w-5 text-red-600" />
+                          <div>
+                            <p className="text-2xl font-bold text-red-700">{sysCounts.vencido}</p>
+                            <p className="text-xs text-slate-500">Vencido</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Sub-filtros + busca */}
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Buscar por nome ou email..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {STATUS_FILTERS.map((f) => (
+                          <button
+                            key={f.value}
+                            type="button"
+                            onClick={() => setStatusFilter(f.value)}
+                            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                              statusFilter === f.value
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Users2 className="w-5 h-5 text-indigo-600" />
+                          Assinantes ({filtered.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {filtered.length === 0 ? (
+                          <p className="text-center text-slate-500 py-8">
+                            Nenhum assinante neste sistema com os filtros atuais.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>ID Externo</TableHead>
+                                  <TableHead>Vencimento</TableHead>
+                                  <TableHead>Dias Restantes</TableHead>
+                                  <TableHead>Pagamento</TableHead>
+                                  <TableHead>Acesso</TableHead>
+                                  <TableHead className="text-right">Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {filtered.map((s) => {
+                                  const daysRemaining = getDaysRemaining(s.expiry_date)
+                                  const isExpired = daysRemaining !== null && daysRemaining <= 0
+                                  const isRowHighlighted =
+                                    s.payment_status === 'pendente' || isExpired
+                                  return (
+                                    <TableRow
+                                      key={s.id}
+                                      className={isRowHighlighted ? 'bg-red-50/50' : ''}
+                                    >
+                                      <TableCell className="font-medium">{s.name}</TableCell>
+                                      <TableCell className="text-slate-600">{s.email}</TableCell>
+                                      <TableCell className="text-slate-500 text-sm">
+                                        {s.external_id || '—'}
+                                      </TableCell>
+                                      <TableCell className="text-slate-600 text-sm">
+                                        {s.expiry_date ? formatDate(s.expiry_date) : '—'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {daysRemaining === null ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="bg-slate-50 text-slate-500 border-slate-200"
+                                          >
+                                            —
+                                          </Badge>
+                                        ) : daysRemaining > 7 ? (
+                                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-medium">
+                                            {daysRemaining} dias
+                                          </Badge>
+                                        ) : daysRemaining > 0 ? (
+                                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none font-medium">
+                                            {daysRemaining} {daysRemaining === 1 ? 'dia' : 'dias'}
+                                          </Badge>
+                                        ) : (
+                                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none font-medium">
+                                            Vencido ({Math.abs(daysRemaining)}d)
+                                          </Badge>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        {s.payment_status === 'pendente' ? (
+                                          <Button
+                                            size="sm"
+                                            onClick={() => markAsPaid(s)}
+                                            disabled={markingPayment === s.id}
+                                            className="bg-green-600 hover:bg-green-700 text-white h-7 px-3 text-xs"
+                                          >
+                                            <CheckCircle2
+                                              className={`mr-1 h-3.5 w-3.5 ${markingPayment === s.id ? 'animate-pulse' : ''}`}
+                                            />
+                                            {markingPayment === s.id
+                                              ? 'Registrando...'
+                                              : 'Marcar como Pago'}
+                                          </Button>
+                                        ) : (
+                                          <button
+                                            onClick={() => togglePaymentStatus(s)}
+                                            className="inline-flex items-center"
+                                            title="Clique para marcar como Pendente"
+                                          >
+                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer transition-colors">
+                                              Em Dia
+                                            </Badge>
+                                          </button>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant="secondary"
+                                          className={
+                                            s.access_status === 'active'
+                                              ? 'bg-indigo-100 text-indigo-700'
+                                              : 'bg-slate-200 text-slate-500'
+                                          }
+                                        >
+                                          {s.access_status === 'active' ? 'Ativo' : 'Inativo'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                          <SubscriberFormDialog
+                                            subscriber={s}
+                                            onSaved={loadData}
+                                            systems={systems}
+                                          />
+                                          <Dialog>
+                                            <DialogTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-sm">
+                                              <DialogHeader>
+                                                <DialogTitle>Confirmar Exclusão</DialogTitle>
+                                              </DialogHeader>
+                                              <p className="text-sm text-slate-600 py-2">
+                                                Deseja realmente excluir o assinante{' '}
+                                                <strong>{s.name}</strong>?
+                                              </p>
+                                              <div className="flex justify-end gap-2 pt-2">
+                                                <Button variant="outline">Cancelar</Button>
+                                                <Button
+                                                  variant="destructive"
+                                                  onClick={() => handleDelete(s.id)}
+                                                >
+                                                  Excluir
+                                                </Button>
+                                              </div>
+                                            </DialogContent>
+                                          </Dialog>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+              </TabsContent>
+            )
+          })}
+        </Tabs>
+      )}
     </div>
   )
 }
